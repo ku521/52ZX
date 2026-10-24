@@ -85,7 +85,7 @@ header .u button{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,2
 body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-webkit-user-select:text}
 </style></head>
 <body>
-<header><h1>政史地·学习练习主站</h1><div class="s">科目×上下册 · 资料/导图/赋分/知识点/路线 · 题库(每周一练·单元·模拟考·大题) · 会员制</div><span class="u" id="hdrUser"></span></header>
+<header><h1>政史地·学习练习主站</h1><div class="s">科目×上下册 · 资料/导图/赋分/知识点/路线 · 题库(每周一练·单元·模拟考·大题) · 会员制</div><span class="u" id="hdrUser"></span><span class="u" id="lineLabel" onclick="switchLine(1)" style="cursor:pointer"></span></header>
 
 <div class="nav" id="nav"></div>
 <div class="vol" id="vol"><button data-v="上册" class="on">上册</button><button data-v="下册">下册</button></div>
@@ -213,7 +213,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
 <script>
 let DATA=null;   // 离线个人版为全量数据；学生版为 null，登录鉴权后从 /api/content 拉取
 const S=JSON.parse(localStorage.getItem('zb_site')||'null')||{quiz:{done:{},wrong:[]},cards:{known:[]}};
-function save(){localStorage.setItem('zb_site',JSON.stringify(S));}
+function save(){localStorage.setItem('zb_site',JSON.stringify(S)); if(MODE==='server') cloudPush();}
 function $(id){return document.getElementById(id);}
 let curSubj='政治',curVol='上册',resTab='summary',quizTab='choice';
 const SUBJ=['政治','历史','地理'];
@@ -334,22 +334,79 @@ const WX = { id: '鑫辰', name: '鑫辰（广东·佛山）' };
 // 资料内容本身也不内嵌在此文件，必须「登录 + 审核通过 + 已开通会员」后
 // 由服务端 /api/content 下发。
 let MODE = 'offline';
-const API_BASE = "https://zxdl-site.app.workbuddy.host";
+const API_BASES = "https://zxdl-site.app.workbuddy.host".split('|').map(s=>s.trim()).filter(Boolean);
+let API_BASE_IDX = 0;
+try{ const bi=parseInt(localStorage.getItem('zb_base')||'0',10); if(bi>=0&&bi<API_BASES.length) API_BASE_IDX=bi; }catch(e){}
 const API_SHARE = "WCFFGHPYRB";
 const API = {
   async call(path, body){
-    let url = (API_BASE && path[0]==='/') ? API_BASE.replace(/\/$/,'') + path : path;
-    if(API_SHARE){ url += (url.indexOf('?')>=0?'&':'?') + 'sharecode=' + encodeURIComponent(API_SHARE); }
-    const opt = { method: body===undefined?'GET':'POST', credentials:'include', cache:'no-store' };
-    if(body!==undefined){ opt.headers={'Content-Type':'application/json'}; opt.body=JSON.stringify(body); }
-    let r;
-    try{ r = await fetch(url, opt); }
-    catch(e){ const err=new Error('网络连接失败，请检查网络'); err.code='NET'; throw err; }
-    let j={}; try{ j = await r.json(); }catch(e){}
-    if(!r.ok){ const err=new Error(j.msg || ('请求失败 '+r.status)); err.code = j.code || ''; throw err; }
-    return j;
+    const bases = API_BASES.length ? API_BASES : [''];
+    let lastErr;
+    for(let i=0;i<bases.length;i++){
+      const idx=(API_BASE_IDX+i)%bases.length;
+      const base=bases[idx];
+      let url=(base&&path[0]==='/')?base.replace(/\/$/,'')+path:path;
+      if(API_SHARE){ url+=(url.indexOf('?')>=0?'&':'?')+'sharecode='+encodeURIComponent(API_SHARE); }
+      const opt={method:body===undefined?'GET':'POST',credentials:'include',cache:'no-store'};
+      if(body!==undefined){ opt.headers={'Content-Type':'application/json'}; opt.body=JSON.stringify(body); }
+      try{
+        const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),9000);
+        const r=await fetch(url,{...opt,signal:ctrl.signal}); clearTimeout(to);
+        if(r.ok){ if(bases.length>1&&idx!==API_BASE_IDX){ API_BASE_IDX=idx; try{localStorage.setItem('zb_base',String(idx));}catch(e){} } updateLineLabel();
+          let j={}; try{ j=await r.json(); }catch(e){} return j; }
+        let j={}; try{ j=await r.json(); }catch(e){}
+        if(!r.ok){ const err=new Error(j.msg||('请求失败 '+r.status)); err.code=j.code||''; throw err; } // 业务错误不切换线路
+      }catch(e){
+        if(e.name==='AbortError'){ lastErr=new Error('线路超时'); continue; }
+        lastErr=e; continue; // 网络错误 → 试下一条线路
+      }
+    }
+    const err=new Error((lastErr&&lastErr.message)||'网络连接失败，请检查网络'); err.code='NET'; throw err;
   }
 };
+function switchLine(dir){ if(API_BASES.length<2) return; API_BASE_IDX=(API_BASE_IDX+(dir||1)+API_BASES.length)%API_BASES.length; try{localStorage.setItem('zb_base',String(API_BASE_IDX));}catch(e){} updateLineLabel(); }
+function updateLineLabel(){ const el=document.getElementById('lineLabel'); if(!el) return; if(API_BASES.length<2){ el.textContent='线路：主'; return; } el.textContent='线路 '+(API_BASE_IDX+1)+'/'+API_BASES.length+'（卡顿点此切换）'; }
+
+// ---------- 云端同步：做题进度 / 错题 / 背诵进度（按字段存 Turso） ----------
+let CLOUD=null, _syncTimer=null;
+async function cloudLoad(){
+  if(MODE!=='server') return;
+  try{
+    const d=await API.call('/api/rec/all');
+    CLOUD={done:{},wrong:[],known:[]};
+    (d.items||[]).forEach(it=>{ try{
+      if(it.kind==='done') CLOUD.done[it.key]=JSON.parse(it.val)||{};
+      else if(it.kind==='wrong') CLOUD.wrong.push(it.key);
+      else if(it.kind==='known') CLOUD.known.push(it.key);
+    }catch(e){} });
+    mergeCloud();
+  }catch(e){ console.warn('cloud load',e); }
+}
+function mergeCloud(){
+  if(!CLOUD) return;
+  CLOUD.wrong.forEach(id=>{ if(!S.quiz.wrong.includes(id)) S.quiz.wrong.push(id); });
+  Object.keys(CLOUD.done).forEach(id=>{
+    const cd=CLOUD.done[id]||{n:0,r:0}, ld=S.quiz.done[id]||{n:0,r:0};
+    S.quiz.done[id]={n:Math.max(cd.n||0,ld.n||0), r:Math.max(cd.r||0,ld.r||0)};
+  });
+  CLOUD.known.forEach(id=>{ if(!S.cards.known.includes(id)) S.cards.known.push(id); });
+  save();
+  if(typeof renderQuizStat==='function') renderQuizStat();
+  if(typeof renderStat==='function') renderStat();
+  const wn=document.getElementById('wn'); if(wn) wn.textContent=S.quiz.wrong.length;
+}
+function cloudPush(){
+  if(MODE!=='server') return;
+  clearTimeout(_syncTimer);
+  _syncTimer=setTimeout(async()=>{
+    const items=[];
+    Object.keys(S.quiz.done).forEach(id=>items.push({kind:'done',key:id,val:S.quiz.done[id]}));
+    S.quiz.wrong.forEach(id=>items.push({kind:'wrong',key:id,val:1}));
+    S.cards.known.forEach(id=>items.push({kind:'known',key:id,val:1}));
+    if(!items.length) return;
+    try{ await API.call('/api/rec/bulk',{items}); }catch(e){ console.warn('cloud push',e); }
+  }, 1200);
+}
 
 let CUR_USER=null;
 function overlay(id,on){ const el=document.getElementById(id); if(el) el.style.display = on?'flex':'none'; }
@@ -362,7 +419,7 @@ async function loadContent(){
 function enterApp(){
   overlay('loginOverlay',false); overlay('payOverlay',false);
   document.getElementById('hdrUser').innerHTML = CUR_USER + ' <button onclick="doLogout()">退出</button>';
-  startApp(); drawWM();
+  startApp(); drawWM(); cloudLoad();
 }
 function showPayment(u){ overlay('loginOverlay',false); overlay('payOverlay',true); document.getElementById('payUser').textContent=u; document.getElementById('payUser2').textContent=u; }
 function showDone(txt){ $('li-form').classList.add('hide'); $('li-done').classList.remove('hide'); if(txt) $('li-done-txt').innerHTML=txt; }
@@ -377,6 +434,7 @@ async function boot(){
   $('wxid').textContent = WX.id;
   // 能连上服务端 → 审核+会员模式；连不上 → 视为个人离线版（无需登录）
   try{ await API.call('/api/health'); MODE='server'; }catch(e){ MODE='offline'; }
+  updateLineLabel();
 
   if(MODE==='offline'){
     if(!DATA){ overlay('loginOverlay',true); showDone('此文件是<b>学生版</b>，需配合服务端使用。<br>个人自用请打开“离线个人版”。'); return; }
