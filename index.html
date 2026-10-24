@@ -27,6 +27,27 @@ header h1{margin:0;font-size:19px}header .s{font-size:11.5px;opacity:.92;margin-
 table.mt{width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0}
 table.mt th,table.mt td{border:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
 table.mt th{background:#f2f6fd;font-weight:600}
+.qtbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:8px 0;border-radius:8px}
+table.qtbl{width:100%;border-collapse:collapse;font-size:13px;margin:0;background:#fff}
+table.qtbl th,table.qtbl td{border:1px solid var(--line);padding:6px 8px;text-align:center;line-height:1.45;white-space:nowrap}
+table.qtbl th{background:#eef4ff;color:#1a3a6b;font-weight:700}
+table.qtbl tbody tr:nth-child(even){background:#f7fafd}
+.rk-me{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
+.rk-top{display:flex;align-items:center;gap:12px}
+.rk-rank{font-size:24px;font-weight:800;color:#1565c0;min-width:76px;flex:0 0 auto}
+.rk-score{font-size:12px;color:#5c6878;line-height:1.5}
+.rk-score b{font-size:22px;color:#e65100}
+.rk-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+.rk-chip{background:#eef4ff;border:1px solid #cfe0ff;color:#2a4a7a;border-radius:999px;padding:3px 10px;font-size:12px}
+.rk-badge{background:#fff7e6;border:1px solid #ffd591;color:#ad6800;border-radius:999px;padding:3px 10px;font-size:12px}
+.rk-cheer{font-size:13px;color:#2e7d32;background:#eefbef;border:1px solid #bfe6c4;border-radius:10px;padding:8px 10px;margin-top:8px;line-height:1.5}
+.rk-row{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0}
+.rk-row.me{border-color:#1565c0;background:#f2f7ff;box-shadow:0 2px 10px rgba(21,101,192,.12)}
+.rk-no{width:30px;text-align:center;font-weight:800;font-size:15px;color:#5c6878;flex:0 0 auto}
+.rk-info{flex:1;min-width:0}
+.rk-name{font-weight:700;font-size:14px}
+.rk-sub{font-size:11.5px;color:#7a8798;margin-top:2px;line-height:1.5}
+.rk-pts{font-weight:800;color:#e65100;font-size:15px;flex:0 0 auto}
 .muted{color:var(--sub)}
 .kcard{border:1px solid var(--line);border-radius:11px;padding:12px;margin:8px 0;background:#fff}
 .kcard .bt{display:inline-block;font-size:12px;color:#fff;padding:2px 9px;border-radius:9px;margin-right:6px}
@@ -174,6 +195,13 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
   <button class="btn ghost" id="c-reset">重置已记住</button>
 </section>
 
+<!-- 排行页 -->
+<section class="page" id="pg-rank">
+  <div class="hint">🏆 学习排行榜 · 每日签到打卡 · 和大家一起进步</div>
+  <div id="rank-me"></div>
+  <div id="rank-list"></div>
+</section>
+
 <!-- 进度页 -->
 <section class="page" id="pg-stat">
   <div class="stat" id="st-q"></div>
@@ -186,6 +214,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
   <a data-p="res"><span class="ic">📚</span>资料</a>
   <a data-p="quiz"><span class="ic">✍️</span>题库</a>
   <a data-p="card"><span class="ic">📇</span>背诵</a>
+  <a data-p="rank"><span class="ic">🏆</span>排行</a>
   <a data-p="stat"><span class="ic">📊</span>进度</a>
 </div>
 
@@ -286,7 +315,7 @@ function renderRes(){
 
 // 底部导航
 let curPage='res';
-function switchPage(p){curPage=p;document.querySelectorAll('.nav2 a').forEach(x=>x.classList.toggle('on',x.dataset.p===p));document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));$('pg-'+p).classList.add('on');if(p==='stat')renderStat();if(p==='quiz')renderQuizStat();if(p==='card')loadCards();}
+function switchPage(p){curPage=p;document.querySelectorAll('.nav2 a').forEach(x=>x.classList.toggle('on',x.dataset.p===p));document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));$('pg-'+p).classList.add('on');if(p==='stat')renderStat();if(p==='quiz')renderQuizStat();if(p==='card')loadCards();if(p==='rank')loadRank();}
 document.querySelectorAll('.nav2 a').forEach(a=>a.onclick=()=>switchPage(a.dataset.p));
 
 // ===== 题库·选择题 =====
@@ -328,7 +357,7 @@ function renderQ(mode){
   const q=qList[qIdx];answered=false;const box=$('quiz-box');
   const quit=`<div class="quit"><span><b>${q.subject}·${q.unit}</b>（第${qIdx+1}/${qList.length}题${mode==='exam'?' · <span id="exam-t">⏱ 20:00</span>':''}）</span><button class="btn ghost sm" onclick="exitQuiz()">⏹ 退出练习</button></div>`;
   let opts='';['A','B','C','D'].filter(k=>q.options[k]).forEach(k=>opts+=`<button class="opt" data-k="${k}">${k}． ${q.options[k]}</button>`);
-  box.innerHTML=quit+`<div class="bar"><i style="width:${qIdx/qList.length*100}%"></i></div><div class="q"><div class="stem">${esc(q.stem)}</div>${opts}<div class="expl" id="ex"></div></div>
+  box.innerHTML=quit+`<div class="bar"><i style="width:${qIdx/qList.length*100}%"></i></div><div class="q"><div class="stem">${q.stem}</div>${opts}<div class="expl" id="ex"></div></div>
   <div class="grid"><button class="btn ghost sm" onclick="prevQ()">← 上一题</button><button class="btn sm" onclick="nextQ()">下一题 →</button></div>`;
   box.querySelectorAll('.opt').forEach(b=>b.onclick=()=>ans(b.dataset.k,mode));
 }
@@ -363,6 +392,78 @@ function showPt(i){const el=$('pt'+i);el.classList.toggle('on');}
 function renderStat(){let n=0,r=0;Object.values(S.quiz.done).forEach(d=>{n+=d.n;r+=d.r;});$('st-q').innerHTML=`刷题：累计 ${n} 题次 · 正确率 ${n?Math.round(r/n*100):0}% · 错题 ${S.quiz.wrong.length}`;const tot=DATA.cards.length,known=S.cards.known.length;$('st-c').innerHTML=`背诵卡：总数 ${tot} · 已会 ${known} · 待巩固 ${tot-known}`;}
 $('st-clear').onclick=()=>{if(confirm('清空全部进度？')){S={quiz:{done:{},wrong:[]},cards:{known:[]}};save();renderStat();renderQuizStat();$('wn').textContent=0;}};
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ===== 学习排行榜 + 每日签到（云端互动） =====
+const RANK_MEDAL=['🥇','🥈','🥉'];
+function rankBadges(r){
+  const b=[];
+  if(r.quiz_n>=100)b.push('✍️ 刷题狂人');
+  if(r.quiz_n>=20&&r.rate>=90)b.push('🎯 精准射手');
+  if(r.cards>=50)b.push('🧠 记忆大师');
+  if(r.ck_days>=7)b.push('📅 签到达人');
+  if(r.streak>=3)b.push('🔥 连签'+r.streak+'天');
+  return b;
+}
+function rankCheer(rank){
+  if(!rank)return '📈 今天开始签到打卡，冲上排行榜！';
+  if(rank===1)return '🏆 榜首宝座稳如泰山，继续保持！';
+  if(rank===2)return '🥈 离榜首只差一步，加油冲！';
+  if(rank===3)return '🥉 前三在握，再刷几题反超！';
+  if(rank<=10)return '💪 前十在望，每天进步一点点！';
+  return '📈 坚持就是胜利，稳住节奏慢慢追！';
+}
+async function loadRank(){
+  if(MODE!=='server'){ $('rank-me').innerHTML='<div class="hint">排行榜是云端互动功能：请用云端版链接打开并登录后使用。</div>'; $('rank-list').innerHTML=''; return; }
+  $('rank-me').innerHTML='<div class="hint">加载中…</div>'; $('rank-list').innerHTML='';
+  try{
+    const ck=await API.call('/api/checkin');
+    const rk=await API.call('/api/rank');
+    renderRank(ck,rk);
+  }catch(e){
+    $('rank-me').innerHTML='<div class="hint" style="color:#e53935">加载失败：'+esc(String(e.message||e))+'</div>';
+  }
+}
+function renderRank(ck,rk){
+  const me=(rk.list||[]).find(x=>x.me)||{score:0,quiz_n:0,rate:0,cards:0,ck_days:0,streak:0,rank:null};
+  const bd=rankBadges(me);
+  $('rank-me').innerHTML=
+   '<div class="rk-me">'
+   +'<div class="rk-top"><div class="rk-rank">'+(me.rank?'No.'+me.rank:'未上榜')+'</div>'
+   +'<div class="rk-score">我的学习积分<br><b>'+(me.score||0)+'</b> 分</div></div>'
+   +'<div class="rk-chips">'
+   +'<span class="rk-chip">做题 '+me.quiz_n+' 次</span>'
+   +'<span class="rk-chip">正确率 '+me.rate+'%</span>'
+   +'<span class="rk-chip">背诵过关 '+me.cards+' 张</span>'
+   +'<span class="rk-chip">签到 '+me.ck_days+' 天</span>'
+   +'</div>'
+   +(ck.checked
+     ?'<button class="btn" disabled style="opacity:.75">✓ 今日已签到 · 连续 '+(ck.streak||0)+' 天 🔥</button>'
+     :'<button class="btn" id="ck-btn" onclick="doCheckin()">📅 今日签到（连签有奖励）</button>')
+   +(bd.length?'<div class="rk-chips" style="margin-top:8px">'+bd.map(b=>'<span class="rk-badge">'+b+'</span>').join('')+'</div>':'')
+   +'<div class="rk-cheer">'+rankCheer(me.rank)+'</div>'
+   +'</div>';
+  const list=rk.list||[];
+  $('rank-list').innerHTML='<div class="hint">成员排行榜（共 '+(rk.total||0)+' 人 · 用户名已脱敏）</div>'
+   +(list.length?list.map(r=>
+     '<div class="rk-row'+(r.me?' me':'')+'">'
+     +'<div class="rk-no">'+(r.rank<=3?RANK_MEDAL[r.rank-1]:r.rank)+'</div>'
+     +'<div class="rk-info"><div class="rk-name">'+esc(r.u)+(r.me?'（我）':'')+'</div>'
+     +'<div class="rk-sub">做题 '+r.quiz_n+' · 正确率 '+r.rate+'% · 背诵 '+r.cards+' · 签到 '+r.ck_days+' 天'+(r.streak>=3?' · 🔥连签'+r.streak+'天':'')+'</div></div>'
+     +'<div class="rk-pts">'+r.score+'</div></div>').join('')
+     :'<div class="hint">还没有成员数据</div>')
+   +'<div class="hint">积分规则：签到 +10 分/天，连签第 3 天起每天额外 +2×连签天数（封顶 +20）；做题 +2 分/题，答对再 +1 分；背诵过关 +5 分/张。</div>';
+}
+async function doCheckin(){
+  const b=document.getElementById('ck-btn'); if(b)b.disabled=true;
+  try{
+    const r=await API.call('/api/checkin',{});
+    const ck=await API.call('/api/checkin');
+    const rk=await API.call('/api/rank');
+    renderRank(ck,rk);
+    if(r.msg&&!r.already) setTimeout(()=>alert(r.msg),80);
+  }catch(e){ alert(String(e.message||'签到失败，请稍后再试')); }
+  finally{ const b2=document.getElementById('ck-btn'); if(b2)b2.disabled=false; }
+}
 
 // ============ 应用入口（登录/会员通过后构建内容） ============
 function startApp(){
