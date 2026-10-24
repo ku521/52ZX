@@ -73,6 +73,8 @@ table.vtbl .vsum td{background:#fff8ec}
 .fcard .fr{font-size:20px;font-weight:700;text-align:center;margin-top:20px;line-height:1.5;white-space:pre-wrap}
 .fcard .bk{font-size:16px;margin-top:16px;color:#33405a;white-space:pre-wrap;border-top:1px dashed var(--line);padding-top:12px}
 .grid{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.grid.m4{flex-wrap:nowrap}
+.grid.m4 .btn{padding:10px 2px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chip{padding:7px 12px;border:1px solid var(--line);border-radius:18px;background:#fff;font-size:13.5px;cursor:pointer}
 .chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 .btn{display:block;width:100%;padding:13px;border:none;border-radius:11px;background:var(--acc);color:#fff;font-size:16px;font-weight:600;margin:8px 0;cursor:pointer}
@@ -171,20 +173,18 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
     <button data-t="essay">大题练手</button>
   </div>
   <div id="quiz-choice">
-    <div class="hint">选择题：科目＋单元筛选；<b>每题只做一次</b>，答完自动跳下一题；答对的错题会自动移出错题本。<br>顺序练＝本册全部题目；单元练＝本单元全部题目（不混入其他单元）；强记·30题＝优先错题＋同册随机；模拟考＝随机20题、限时20分钟。</div>
+    <div class="hint">选择题：科目＋单元筛选；<b>每题只做一次</b>，答完自动跳下一题；答对的错题会自动移出错题本。<br>顺序练＝本册全部题目；单元练＝本单元全部题目（不混入其他单元）；强记30题＝优先错题＋同册随机；模拟考＝随机20题、限时20分钟。</div>
     <div class="kfilter" id="q-subj"></div>
     <div class="kfilter" id="q-unit"><span class="chip on" data-u="">全部单元</span></div>
     <div class="grid">
       <button class="btn g" style="flex:1" id="q-weekly">每周一练(随机15)</button>
       <button class="btn" style="flex:1" id="q-seq">顺序练(本册)</button>
     </div>
-    <div class="grid">
-      <button class="btn ghost" style="flex:1" id="q-unit-btn">单元练(本单元)</button>
-      <button class="btn ghost" style="flex:1" id="q-exam">模拟考(限时20)</button>
-      <button class="btn ghost" style="flex:1" id="q-wrong">错题本(<span id="wn">0</span>)</button>
-    </div>
-    <div class="grid">
-      <button class="btn ghost" style="flex:1" id="q-strong">强记·30题(含错题)</button>
+    <div class="grid m4">
+      <button class="btn ghost" style="flex:1" id="q-unit-btn" title="单元练：本单元全部题目，不混入其他单元">单元练</button>
+      <button class="btn ghost" style="flex:1" id="q-exam" title="模拟考：随机20题，限时20分钟">模拟考</button>
+      <button class="btn ghost" style="flex:1" id="q-wrong" title="错题本：只练做错的题，答对自动移出">错题本(<span id="wn">0</span>)</button>
+      <button class="btn ghost" style="flex:1" id="q-strong" title="强记30题：优先错题＋同册随机">强记30题</button>
     </div>
     <div id="quiz-box"></div>
     <div class="stat" id="quiz-stat"></div>
