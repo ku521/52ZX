@@ -223,9 +223,8 @@ const nav=$('nav');SUBJ.forEach(s=>{const b=document.createElement('button');b.t
 function selNav(){[...nav.children].forEach((b,i)=>b.classList.toggle('on',SUBJ[i]===curSubj));}
 $('vol').querySelectorAll('button').forEach(b=>b.onclick=()=>{curVol=b.dataset.v;[...$('vol').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');if(curPage==='res')renderRes();if(curPage==='quiz'&&quizTab==='choice'){buildSubjFilter();}if(curPage==='quiz'&&quizTab==='essay')renderEssays();});
 
-// 首页内容
-$('roadmap').innerHTML=DATA.roadmap;
-$('memory').innerHTML=DATA.memory;
+// 首页内容（学生/云端/GitHub 版 DATA 初始为 null，登录鉴权拉取资料后由 startApp 再渲染，故此处必须判空）
+if(DATA){ $('roadmap').innerHTML=DATA.roadmap; $('memory').innerHTML=DATA.memory; }
 
 // 资料页
 $('res-tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{resTab=b.dataset.t;[...$('res-tabs').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');renderRes();});
@@ -321,6 +320,7 @@ function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 
 // ============ 应用入口（登录/会员通过后构建内容） ============
 function startApp(){
+  if(DATA){ $('roadmap').innerHTML=DATA.roadmap; $('memory').innerHTML=DATA.memory; }
   selNav();renderRes();buildSubjFilter();renderQuizStat();renderEssays();
   $('hot').innerHTML = DATA.hot.map(h=>`<div class="kcard"><span class="bt 必背">热点</span><div class="fr">${esc(h.front)}</div><div class="bk">${esc(h.back)}</div></div>`).join('');
 }
@@ -346,7 +346,8 @@ const API = {
       const idx=(API_BASE_IDX+i)%bases.length;
       const base=bases[idx];
       let url=(base&&path[0]==='/')?base.replace(/\/$/,'')+path:path;
-      if(API_SHARE){ url+=(url.indexOf('?')>=0?'&':'?')+'sharecode='+encodeURIComponent(API_SHARE); }
+      let share = API_SHARE || (function(){ try{ return new URLSearchParams(location.search).get('sharecode')||''; }catch(e){ return ''; } })();
+      if(share){ url+=(url.indexOf('?')>=0?'&':'?')+'sharecode='+encodeURIComponent(share); }
       const opt={method:body===undefined?'GET':'POST',credentials:'include',cache:'no-store'};
       if(body!==undefined){ opt.headers={'Content-Type':'application/json'}; opt.body=JSON.stringify(body); }
       try{
