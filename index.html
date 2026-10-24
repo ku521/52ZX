@@ -96,6 +96,11 @@ table.vtbl .vsum td{background:#fff8ec}
 .nav2 a.on{color:var(--acc);font-weight:700}.nav2 a .ic{font-size:19px;display:block}
 .hint{font-size:13px;color:var(--sub);background:#fff7e6;border:1px solid #ffe0a3;border-radius:10px;padding:9px 11px;margin:10px 0}
 .kfilter{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+/* 单元标签：一行两列、等宽对齐；文字过长时由 JS 自动缩字号；
+   "全部单元" 通栏 */
+#q-unit{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:6px 0}
+#q-unit .chip{display:flex;align-items:center;justify-content:center;min-height:36px;padding:7px 6px;text-align:center;line-height:1.25;border-radius:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#q-unit .chip.all{grid-column:1 / -1;font-weight:600}
 .mem-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
 .mem{background:#f0f7ff;border:1px solid #cfe3ff;border-radius:8px;padding:9px 11px;font-size:13px}.mem b{color:#1a5fb4}
 .phase{border-radius:10px;padding:12px 14px;margin:14px 0}
@@ -173,7 +178,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
     <button data-t="essay">大题练手</button>
   </div>
   <div id="quiz-choice">
-    <div class="hint">选择题：科目＋单元筛选；<b>每题只做一次</b>，答完自动跳下一题；答对的错题会自动移出错题本。<br>顺序练＝本册全部题目；单元练＝本单元全部题目（不混入其他单元）；强记30题＝优先错题＋同册随机；模拟考＝随机20题、限时20分钟。</div>
+    <div class="hint">选择题：科目＋单元筛选；<b>每题只做一次</b>，答完自动跳下一题；答对的错题会自动移出错题本。<br>选中单元后，随机练（每周一练/强记30题/模拟考）<b>只从该单元抽题</b>；顺序练＝本册全部题目；单元练＝本单元全部题目（不混入其他单元）；强记30题＝优先错题＋随机补齐；模拟考＝随机20题、限时20分钟。</div>
     <div class="kfilter" id="q-subj"></div>
     <div class="kfilter" id="q-unit"><span class="chip on" data-u="">全部单元</span></div>
     <div class="grid">
@@ -367,6 +372,9 @@ function renderRes(){
 let curPage='res';
 function switchPage(p){curPage=p;document.querySelectorAll('.nav2 a').forEach(x=>x.classList.toggle('on',x.dataset.p===p));document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));$('pg-'+p).classList.add('on');if(p==='stat')renderStat();if(p==='res')renderRes();if(p==='quiz'){buildSubjFilter();renderQuizStat();if(quizTab==='essay')renderEssays();}if(p==='card')loadCards();if(p==='rank')loadRank();}
 document.querySelectorAll('.nav2 a').forEach(a=>a.onclick=()=>switchPage(a.dataset.p));
+// 窗口尺寸变化：重算吸顶栏高度 + 标签字号自适应
+window.addEventListener('resize',()=>{syncSticky();if(curPage==='quiz'){fitChips($('q-subj'));fitChips($('q-unit'));}});
+syncSticky();
 
 // ===== 题库·选择题 =====
 // 顶部科目导航与题库内科目按钮共用同一套状态（curSubj/curVol），点哪一处都会同步切换。
@@ -384,13 +392,26 @@ function pickSubj(s){
 function buildSubjFilter(){
   const box=$('q-subj');if(!box)return;box.innerHTML='';
   SUBJ.forEach(s=>{const c=document.createElement('span');c.className='chip'+(s===curSubj?' on':'');c.textContent=s;c.title='切换到'+s;c.onclick=()=>pickSubj(s);box.appendChild(c);});
+  fitChips(box);
   buildUnitFilter();
 }
 function buildUnitFilter(){
   const box=$('q-unit');if(!box)return;box.innerHTML='';
   const pool=DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol);
   const units=[...new Set(pool.map(q=>q.unit))];
-  [{'v':'','t':'全部单元（'+pool.length+'题）'},...units.map(u=>({v:u,t:u}))].forEach(o=>{const c=document.createElement('span');c.className='chip'+(o.v===qUnit?' on':'');c.textContent=o.t;c.title=o.t;c.onclick=()=>{qUnit=o.v;buildUnitFilter();$('quiz-box').innerHTML='';clearAuto();stopTimer();renderQuizStat();};box.appendChild(c);});
+  [{'v':'','t':'全部单元（'+pool.length+'题）','all':1},...units.map(u=>({v:u,t:u}))].forEach(o=>{
+    const c=document.createElement('span');c.className='chip'+(o.all?' all':'')+(o.v===qUnit?' on':'');c.textContent=o.t;c.title=o.t;
+    c.onclick=()=>{qUnit=o.v;buildUnitFilter();$('quiz-box').innerHTML='';clearAuto();stopTimer();renderQuizStat();};
+    box.appendChild(c);});
+  fitChips(box);
+}
+// 标签文字自适应缩字号：放不下就逐级缩小（最低 9.5px），保证一行显示、两列对齐
+function fitChips(box){
+  if(!box||!box.clientWidth)return;
+  [...box.children].forEach(c=>{
+    let fs=13.5;c.style.fontSize=fs+'px';let guard=0;
+    while(c.scrollWidth>c.clientWidth+1&&fs>9.5&&guard++<30){fs-=0.5;c.style.fontSize=fs+'px';}
+  });
 }
 $('q-weekly').onclick=()=>startQuiz('weekly');
 $('q-seq').onclick=()=>startQuiz('seq');
@@ -399,11 +420,12 @@ $('q-exam').onclick=()=>startQuiz('exam');
 $('q-wrong').onclick=()=>startQuiz('wrong');
 $('q-strong').onclick=()=>startQuiz('strong');
 $('q-reset').onclick=()=>resetVolQuiz();
-// 出题池：顺序练/每周一练/模拟考 = 本册(全部单元)；单元练 = 指定单元；错题本 = 当前科目全部错题
+// 出题池：顺序练=本册；单元练=指定单元；每周一练/模拟考/强记=本册随机（选中单元则只抽该单元）；错题本=当前科目全部错题
 function poolOf(mode){
   if(mode==='wrong'){const w=new Set(S.quiz.wrong);return DATA.questions.filter(q=>q.subject===curSubj&&w.has(q.id));}
   let p=DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol);
   if(mode==='unit'){if(!qUnit)return [];p=p.filter(q=>q.unit===qUnit);}
+  else if(qUnit&&(mode==='weekly'||mode==='exam'||mode==='strong')){p=p.filter(q=>q.unit===qUnit);} // 随机练也只在选中单元内抽题
   return p;
 }
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
@@ -422,8 +444,18 @@ function seqOrder(pool){
   const idx=seqOrder._idx,uo=seqOrder._uo;
   return pool.slice().sort((a,b)=>{const ka=uo[a.subject+'|'+a.volume+'|'+a.unit],kb=uo[b.subject+'|'+b.volume+'|'+b.unit];if(ka!==kb)return ka-kb;return idx.get(a.id)-idx.get(b.id);});
 }
-// 跳题后定位到答题区顶部（而非整页顶部），避免“答完跳回最顶、还得重新下拉”
-function focusQuiz(){var b=document.getElementById('quiz-box');if(!b)return;var navH=0;var nav=document.getElementById('nav');if(nav)navH=nav.offsetHeight+8;var r=b.getBoundingClientRect();var top=window.pageYOffset+r.top-navH;window.scrollTo(0,Math.max(0,Math.round(top)));}
+// 吸顶栏（标题栏+科目导航）实际高度同步给 .nav 的 sticky top，保证 JS 定位与 CSS 一致
+function syncSticky(){const hd=document.querySelector('header'),nav=document.getElementById('nav');const h=hd?hd.offsetHeight:0;if(nav&&h>0)nav.style.top=h+'px';}
+// 跳题后把「题目行」（题号/单元那一行）定位到吸顶栏正下方，减少手动滑动
+function focusQuiz(){
+  const b=document.getElementById('quiz-box');if(!b)return;
+  const row=b.querySelector('.quit')||b;               // 题目行优先，取不到退回答题区
+  let off=8;
+  const nav=document.getElementById('nav');if(nav)off+=nav.offsetHeight;
+  const hd=document.querySelector('header');if(hd)off+=hd.offsetHeight;
+  const r=row.getBoundingClientRect();
+  window.scrollTo(0,Math.max(0,Math.round(window.pageYOffset+r.top-off)));
+}
 function startQuiz(mode){
   clearAuto();stopTimer();
   const pool=poolOf(mode);
@@ -433,10 +465,11 @@ function startQuiz(mode){
   else if(mode==='unit'){ // 单元练：仅本单元题目，随机排序，不混入其他单元
     qList=shuffle(pool.slice());
   }
-  else if(mode==='strong'){ // 强记·30题：优先错题，再补同册
+  else if(mode==='strong'){ // 强记·30题：优先错题，再补同范围随机（选中单元则限该单元）
     const w=new Set(S.quiz.wrong);
-    const wr=DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol&&w.has(q.id));
-    const ot=DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol&&!w.has(q.id));
+    const inScope=q=>q.subject===curSubj&&q.volume===curVol&&(!qUnit||q.unit===qUnit);
+    const wr=DATA.questions.filter(q=>inScope(q)&&w.has(q.id));
+    const ot=DATA.questions.filter(q=>inScope(q)&&!w.has(q.id));
     shuffle(ot);qList=wr.concat(ot.slice(0,Math.max(0,30-wr.length)));
   }
   else if(mode==='weekly')qList=pickN(pool,15);
@@ -809,6 +842,7 @@ async function doLogout(){
 
 async function boot(){
   $('wxid').textContent = WX.id;
+  syncSticky();
   startSlowWatch();
   // 能连上服务端 → 登录免费使用；连不上 → 视为个人离线版（无需登录）
   try{ await API.call('/api/health'); MODE='server'; }catch(e){ MODE='offline'; }
