@@ -159,7 +159,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
     <button data-t="essay">大题练手</button>
   </div>
   <div id="quiz-choice">
-    <div class="hint">选择题：科目＋单元筛选；<b>每题只做一次</b>，答完自动跳下一题；答对的错题会自动移出错题本。<br>顺序练＝本册全部题目；单元练＝20题（本单元全部＋同册补足）；强记·30题＝优先错题＋同册随机；模拟考＝随机20题、限时20分钟。</div>
+    <div class="hint">选择题：科目＋单元筛选；<b>每题只做一次</b>，答完自动跳下一题；答对的错题会自动移出错题本。<br>顺序练＝本册全部题目；单元练＝本单元全部题目（不混入其他单元）；强记·30题＝优先错题＋同册随机；模拟考＝随机20题、限时20分钟。</div>
     <div class="kfilter" id="q-subj"></div>
     <div class="kfilter" id="q-unit"><span class="chip on" data-u="">全部单元</span></div>
     <div class="grid">
@@ -167,7 +167,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
       <button class="btn" style="flex:1" id="q-seq">顺序练(本册)</button>
     </div>
     <div class="grid">
-      <button class="btn ghost" style="flex:1" id="q-unit-btn">单元练(20)</button>
+      <button class="btn ghost" style="flex:1" id="q-unit-btn">单元练(本单元)</button>
       <button class="btn ghost" style="flex:1" id="q-exam">模拟考(限时20)</button>
       <button class="btn ghost" style="flex:1" id="q-wrong">错题本(<span id="wn">0</span>)</button>
     </div>
@@ -396,15 +396,16 @@ function seqOrder(pool){
   const idx=seqOrder._idx,uo=seqOrder._uo;
   return pool.slice().sort((a,b)=>{const ka=uo[a.subject+'|'+a.volume+'|'+a.unit],kb=uo[b.subject+'|'+b.volume+'|'+b.unit];if(ka!==kb)return ka-kb;return idx.get(a.id)-idx.get(b.id);});
 }
+// 跳题后定位到答题区顶部（而非整页顶部），避免“答完跳回最顶、还得重新下拉”
+function focusQuiz(){var b=document.getElementById('quiz-box');if(!b)return;var navH=0;var nav=document.getElementById('nav');if(nav)navH=nav.offsetHeight+8;var r=b.getBoundingClientRect();var top=window.pageYOffset+r.top-navH;window.scrollTo(0,Math.max(0,Math.round(top)));}
 function startQuiz(mode){
   clearAuto();stopTimer();
   const pool=poolOf(mode);
   if(!pool.length){alert(mode==='unit'?'请先在上方选一个单元':(mode==='wrong'?'当前科目暂无错题，先去练题吧':'该范围暂无题目，换科目或单元试试'));return;}
   if(mode==='seq')qList=seqOrder(pool);
   else if(mode==='wrong')qList=pool.slice();
-  else if(mode==='unit'){ // 单元练：本单元全部 + 同册补够 20 题
-    const base=pool.slice();const full=DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol&&q.unit!==qUnit);
-    shuffle(full);qList=base.concat(full.slice(0,Math.max(0,20-base.length)));
+  else if(mode==='unit'){ // 单元练：仅本单元题目，随机排序，不混入其他单元
+    qList=shuffle(pool.slice());
   }
   else if(mode==='strong'){ // 强记·30题：优先错题，再补同册
     const w=new Set(S.quiz.wrong);
@@ -420,7 +421,7 @@ function startQuiz(mode){
   if(mode==='exam'){examLeft=20*60;startTimer();}else stopTimer();
   renderQ();
   renderQuizStat();
-  window.scrollTo(0,0);
+  focusQuiz();
 }
 function startTimer(){stopTimer();const t=()=>{examLeft--;const m=Math.floor(examLeft/60),s=examLeft%60;$('exam-t').textContent=`⏱ ${m}:${s<10?'0':''}${s}`;if(examLeft<=0){doExamEnd();}};timer=setInterval(t,1000);}
 function stopTimer(){if(timer){clearInterval(timer);timer=null;}}
@@ -459,10 +460,10 @@ function ans(k){
   ex.parentNode.appendChild(nt);
   clearAuto();autoT=setTimeout(()=>{nextQ();},delay);
 }
-function prevQ(){clearAuto();if(qIdx>0){qIdx--;renderQ();window.scrollTo(0,0);}}
+function prevQ(){clearAuto();if(qIdx>0){qIdx--;renderQ();focusQuiz();}}
 function nextQ(){
   clearAuto();
-  if(qIdx<qList.length-1){qIdx++;renderQ();window.scrollTo(0,0);return;}
+  if(qIdx<qList.length-1){qIdx++;renderQ();focusQuiz();return;}
   if(qMode==='exam'){doExamEnd();return;}
   $('quiz-box').innerHTML='<div class="hint" style="text-align:center">🎉 本组完成！共 '+qList.length+' 题，已完成全部作答。</div><div class="grid"><button class="btn ghost" onclick="exitQuiz()">返回题库首页</button></div>';
 }
