@@ -32,6 +32,11 @@ table.qtbl{width:100%;border-collapse:collapse;font-size:13px;margin:0;backgroun
 table.qtbl th,table.qtbl td{border:1px solid var(--line);padding:6px 8px;text-align:center;line-height:1.45;white-space:nowrap}
 table.qtbl th{background:#eef4ff;color:#1a3a6b;font-weight:700}
 table.qtbl tbody tr:nth-child(even){background:#f7fafd}
+table.vtbl{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+table.vtbl th{background:#f2f6fd;font-weight:600}
+table.vtbl th,table.vtbl td{border:1px solid #e3e9f2;padding:6px 8px;text-align:center}
+table.vtbl td:nth-child(2){text-align:left}
+table.vtbl .vsum td{background:#fff8ec}
 .rk-me{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
 .rk-top{display:flex;align-items:center;gap:12px}
 .rk-rank{font-size:24px;font-weight:800;color:#1565c0;min-width:76px;flex:0 0 auto}
@@ -206,6 +211,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
 <section class="page" id="pg-stat">
   <div class="stat" id="st-q"></div>
   <div class="stat" id="st-c"></div>
+  <div class="card" id="st-vol"></div>
   <button class="btn ghost" id="st-clear">清空全部进度</button>
 </section>
 
@@ -327,7 +333,7 @@ function buildSubjFilter(){
 }
 function buildUnitFilter(){
   const box=$('q-unit');box.innerHTML='';
-  let pool=DATA.questions.filter(q=>q.volume==='上册'&&(!qSubj||q.subject===qSubj));
+  let pool=DATA.questions.filter(q=>q.volume===curVol&&(!qSubj||q.subject===qSubj));
   const units=[...new Set(pool.map(q=>q.unit))];
   [{'v':'','t':'全部单元'},...units.map(u=>({v:u,t:u.slice(0,10)}))].forEach(o=>{const c=document.createElement('span');c.className='chip'+(o.v===qUnit?' on':'');c.textContent=o.t;c.onclick=()=>{qUnit=o.v;buildUnitFilter();};box.appendChild(c);});
 }
@@ -336,7 +342,7 @@ $('q-seq').onclick=()=>startQuiz('seq');
 $('q-unit-btn').onclick=()=>startQuiz('unit');
 $('q-exam').onclick=()=>startQuiz('exam');
 $('q-wrong').onclick=()=>startQuiz('wrong');
-function poolOf(){let p=DATA.questions.filter(q=>q.volume==='上册'&&(!qSubj||q.subject===qSubj)&&(!qUnit||q.unit===qUnit));return p;}
+function poolOf(){let p=DATA.questions.filter(q=>q.volume===curVol&&(!qSubj||q.subject===qSubj)&&(!qUnit||q.unit===qUnit));return p;}
 function startQuiz(mode){
   let pool=poolOf();
   if(mode==='wrong'){const w=new Set(S.quiz.wrong);pool=pool.filter(q=>w.has(q.id));if(!pool.length){alert('暂无错题，先去练题吧');return;}}
@@ -389,7 +395,29 @@ function renderEssays(){
 function showPt(i){const el=$('pt'+i);el.classList.toggle('on');}
 
 // ===== 进度页 =====
-function renderStat(){let n=0,r=0;Object.values(S.quiz.done).forEach(d=>{n+=d.n;r+=d.r;});$('st-q').innerHTML=`刷题：累计 ${n} 题次 · 正确率 ${n?Math.round(r/n*100):0}% · 错题 ${S.quiz.wrong.length}`;const tot=DATA.cards.length,known=S.cards.known.length;$('st-c').innerHTML=`背诵卡：总数 ${tot} · 已会 ${known} · 待巩固 ${tot-known}`;}
+function renderStat(){let n=0,r=0;Object.values(S.quiz.done).forEach(d=>{n+=d.n;r+=d.r;});$('st-q').innerHTML=`刷题：累计 ${n} 题次 · 正确率 ${n?Math.round(r/n*100):0}% · 错题 ${S.quiz.wrong.length}`;const tot=DATA.cards.length,known=S.cards.known.length;$('st-c').innerHTML=`背诵卡：总数 ${tot} · 已会 ${known} · 待巩固 ${tot-known}`;renderVolStat();}
+// 按上下册 × 科目 统计题库题量与练习进度
+function renderVolStat(){
+  const box=$('st-vol');if(!box)return;
+  let rows='';
+  const grand={t:0,n:0,r:0,w:0,c:0,k:0};
+  ['上册','下册'].forEach(v=>{
+    SUBJ.forEach(s=>{
+      const qs=DATA.questions.filter(q=>q.subject===s&&q.volume===v);
+      if(!qs.length)return;
+      let n=0,r=0,w=0;
+      qs.forEach(q=>{const d=S.quiz.done[q.id];if(d){n+=d.n;r+=d.r;}if(S.quiz.wrong.includes(q.id))w++;});
+      const cs=DATA.cards.filter(c=>c.subject===s&&c.volume===v);
+      const known=cs.filter(c=>S.cards.known.includes(cardKey(c))).length;
+      grand.t+=qs.length;grand.n+=n;grand.r+=r;grand.w+=w;grand.c+=cs.length;grand.k+=known;
+      rows+=`<tr><td>${v}</td><td><b>${s}</b></td><td>${qs.length}</td><td>${n}</td><td>${n?Math.round(r/n*100)+'%':'—'}</td><td>${w}</td><td>${cs.length}</td><td>${known}</td></tr>`;
+    });
+  });
+  box.innerHTML=`<h3>📚 题库分布与练习进度（按册别 · 科目）</h3>
+  <table class="vtbl"><thead><tr><th>册别</th><th>科目</th><th>题数</th><th>已练</th><th>正确率</th><th>错题</th><th>背诵卡</th><th>已会</th></tr></thead>
+  <tbody>${rows}<tr class="vsum"><td colspan="2"><b>合计</b></td><td><b>${grand.t}</b></td><td>${grand.n}</td><td>${grand.n?Math.round(grand.r/grand.n*100)+'%':'—'}</td><td>${grand.w}</td><td>${grand.c}</td><td>${grand.k}</td></tr></tbody></table>
+  <p class="muted" style="font-size:12px">题数=该册该科的选择题总量（上方「题库」页按上册/下册切换练习）；错题可在题库页「错题本」重练。</p>`;
+}
 $('st-clear').onclick=()=>{if(confirm('清空全部进度？')){S={quiz:{done:{},wrong:[]},cards:{known:[]}};save();renderStat();renderQuizStat();$('wn').textContent=0;}};
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
