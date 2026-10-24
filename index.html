@@ -33,6 +33,14 @@ table.mt th{background:#f2f6fd;font-weight:600}
 .bt.必背{background:var(--red)}.bt.必修{background:var(--blue)}.bt.赋分{background:var(--green)}
 .kcard .fr{font-weight:700;font-size:15.5px}.kcard .bk{color:#33405a;margin-top:5px;font-size:14px;white-space:pre-wrap}
 .kcard .st{color:#f5a623;float:right}
+/* ===== 原句过关背诵（翻卡） ===== */
+.sel{padding:11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:14px}
+.fcard{position:relative;background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 16px 36px;margin:10px 0;min-height:150px;cursor:pointer;box-shadow:0 2px 10px rgba(30,50,90,.05)}
+.fcard .bt{position:absolute;top:12px;left:14px;display:inline-block;font-size:12px;color:#fff;padding:3px 10px;border-radius:10px}
+.fcard .st{position:absolute;top:12px;right:14px;color:#f5a623;font-size:17px}
+.fcard .unit{position:absolute;bottom:10px;right:14px;font-size:12px;color:var(--sub)}
+.fcard .fr{font-size:20px;font-weight:700;text-align:center;margin-top:20px;line-height:1.5;white-space:pre-wrap}
+.fcard .bk{font-size:16px;margin-top:16px;color:#33405a;white-space:pre-wrap;border-top:1px dashed var(--line);padding-top:12px}
 .grid{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 .chip{padding:7px 12px;border:1px solid var(--line);border-radius:18px;background:#fff;font-size:13.5px;cursor:pointer}
 .chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
@@ -141,6 +149,26 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
   </div>
 </section>
 
+<!-- 原句过关背诵（翻卡记背） -->
+<section class="page" id="pg-card">
+  <div class="hint">原句过关背诵：点卡片翻面看答案；「已记住」会从牌堆移除并计入过关，「还没记住」留下次再刷。★=高频必背，赋分=大题得分句，必修=核心考点。</div>
+  <div class="kfilter" id="c-subj"></div>
+  <div class="grid"><select class="sel" id="c-unit" style="flex:1"><option value="">全部单元</option></select></div>
+  <div class="kfilter" id="c-tag">
+    <span class="chip on" data-t="">全部</span>
+    <span class="chip" data-t="必背">必背</span>
+    <span class="chip" data-t="必修">必修</span>
+    <span class="chip" data-t="赋分">赋分</span>
+  </div>
+  <div id="card-area"></div>
+  <div class="grid">
+    <button class="btn ghost" style="flex:1" id="c-no">还没记住</button>
+    <button class="btn g" style="flex:1" id="c-yes">已记住 ✓</button>
+  </div>
+  <div class="muted" id="c-prog" style="text-align:center;margin:8px 0;font-size:13px"></div>
+  <button class="btn ghost" id="c-reset">重置已记住</button>
+</section>
+
 <!-- 进度页 -->
 <section class="page" id="pg-stat">
   <div class="stat" id="st-q"></div>
@@ -152,6 +180,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
   <a class="on" data-p="home"><span class="ic">🏠</span>首页</a>
   <a data-p="res"><span class="ic">📚</span>资料</a>
   <a data-p="quiz"><span class="ic">✍️</span>题库</a>
+  <a data-p="card"><span class="ic">📇</span>背诵</a>
   <a data-p="stat"><span class="ic">📊</span>进度</a>
 </div>
 
@@ -240,7 +269,7 @@ function renderRes(){
 
 // 底部导航
 let curPage='res';
-function switchPage(p){curPage=p;document.querySelectorAll('.nav2 a').forEach(x=>x.classList.toggle('on',x.dataset.p===p));document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));$('pg-'+p).classList.add('on');if(p==='stat')renderStat();if(p==='quiz')renderQuizStat();}
+function switchPage(p){curPage=p;document.querySelectorAll('.nav2 a').forEach(x=>x.classList.toggle('on',x.dataset.p===p));document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));$('pg-'+p).classList.add('on');if(p==='stat')renderStat();if(p==='quiz')renderQuizStat();if(p==='card')loadCards();}
 document.querySelectorAll('.nav2 a').forEach(a=>a.onclick=()=>switchPage(a.dataset.p));
 
 // ===== 题库·选择题 =====
@@ -323,7 +352,55 @@ function startApp(){
   if(DATA){ $('roadmap').innerHTML=DATA.roadmap; $('memory').innerHTML=DATA.memory; }
   selNav();renderRes();buildSubjFilter();renderQuizStat();renderEssays();
   $('hot').innerHTML = DATA.hot.map(h=>`<div class="kcard"><span class="bt 必背">热点</span><div class="fr">${esc(h.front)}</div><div class="bk">${esc(h.back)}</div></div>`).join('');
+  if(typeof buildCardSubj==='function'){ buildCardSubj(); fillCUnits(); }
 }
+
+// ===== 原句过关背诵（翻卡记背，进度存 S.cards.known 并同步云端） =====
+let cSubj='',cUnit='',cTag='',cList=[],cIdx=0,cFlip=false;
+function cardKey(c){return c.subject+'@@'+c.unit+'@@'+c.front;}
+function _cards(){return (DATA&&DATA.cards)||[];}
+function selChip(scope,el){document.querySelectorAll(scope+' .chip').forEach(x=>x.classList.remove('on'));if(el)el.classList.add('on');}
+function buildCardSubj(){
+  const box=$('c-subj');if(!box)return;box.innerHTML='';
+  const subs=[...new Set(_cards().map(c=>c.subject))];
+  const all=document.createElement('span');all.className='chip on';all.textContent='全部科目';
+  all.onclick=()=>{cSubj='';cUnit='';$('c-unit').value='';selChip('#c-subj',all);fillCUnits();loadCards();};
+  box.appendChild(all);
+  subs.forEach(s=>{const c=document.createElement('span');c.className='chip';c.textContent=s;
+    c.onclick=()=>{cSubj=s;cUnit='';$('c-unit').value='';selChip('#c-subj',c);fillCUnits();loadCards();};box.appendChild(c);});
+}
+function fillCUnits(){
+  const box=$('c-unit');if(!box)return;box.innerHTML='<option value="">全部单元</option>';
+  const us=[...new Set(_cards().filter(c=>(!cSubj||c.subject===cSubj)).map(c=>c.unit))];
+  us.forEach(u=>{const o=document.createElement('option');o.value=u;o.textContent=u;box.appendChild(o);});
+}
+function loadCards(){
+  const area=$('card-area');if(!area)return;
+  if(!_cards().length){area.innerHTML='<div class="hint">资料加载中或暂无可背卡片。</div>';return;}
+  cList=_cards().filter(c=>(!cSubj||c.subject===cSubj)&&(!cUnit||c.unit===cUnit)&&(!cTag||c.tag===cTag)&&!S.cards.known.includes(cardKey(c)));
+  cIdx=0;renderCard();
+}
+function renderCard(){
+  const area=$('card-area');if(!area)return;
+  if(!cList.length){area.innerHTML='<div class="hint">该范围暂无卡片（可能都已标记"已记住"，可点下方重置）。</div>';$('c-prog').textContent='';return;}
+  const c=cList[cIdx];
+  const known=S.cards.known.includes(cardKey(c));
+  const back=cFlip?`<div class="bk">${esc(c.back)}</div>`:'';
+  area.innerHTML=`<div class="fcard" onclick="cFlipCard()">
+    <span class="bt ${c.tag}">${c.tag}</span>${c.star?'<span class="st">★</span>':''}
+    <div class="fr">${esc(c.front)}</div>${back}
+    <span class="unit">${c.unit}${known?' · 已会':''}</span></div>`;
+  const left=cList.length-S.cards.known.filter(k=>cList.some(c=>cardKey(c)===k)).length;
+  $('c-prog').textContent=`第 ${cIdx+1} / ${cList.length} 张 · 本范围待巩固 ${left} 张`;
+  cFlip=false;
+}
+function cFlipCard(){cFlip=!cFlip;renderCard();}
+function nextCard(){if(cIdx<cList.length-1){cIdx++;renderCard();}else{const area=$('card-area');area.innerHTML='<div class="hint">本组看完啦 ✅ 点「重置已记住」可重来，或切换科目/标签继续。</div>';$('c-prog').textContent='已完成本组';}}
+$('c-yes').onclick=()=>{const c=cList[cIdx];if(!c)return;const k=cardKey(c);if(!S.cards.known.includes(k))S.cards.known.push(k);save();nextCard();};
+$('c-no').onclick=()=>{nextCard();};
+$('c-reset').onclick=()=>{S.cards.known=[];save();loadCards();};
+document.querySelectorAll('#c-tag .chip').forEach(c=>c.onclick=()=>{selChip('#c-tag',c);cTag=c.dataset.t;loadCards();});
+$('c-unit').onchange=()=>{cUnit=$('c-unit').value;loadCards();};
 
 // ============ 客服微信（仅展示用，页面内不含任何密钥） ============
 const WX = { id: '鑫辰', name: '鑫辰（广东·佛山）' };
