@@ -159,7 +159,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
     <button data-t="essay">大题练手</button>
   </div>
   <div id="quiz-choice">
-    <div class="hint">选择题：科目＋单元筛选；每周一练随机15、单元练、错题本、模拟考(限时)。进度自动保存。</div>
+    <div class="hint">选择题：科目＋单元筛选；<b>每题只做一次</b>，答完自动跳下一题；答对的错题会自动移出错题本。<br>顺序练＝本册全部题目；单元练＝20题（本单元全部＋同册补足）；强记·30题＝优先错题＋同册随机；模拟考＝随机20题、限时20分钟。</div>
     <div class="kfilter" id="q-subj"></div>
     <div class="kfilter" id="q-unit"><span class="chip on" data-u="">全部单元</span></div>
     <div class="grid">
@@ -167,12 +167,16 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
       <button class="btn" style="flex:1" id="q-seq">顺序练(本册)</button>
     </div>
     <div class="grid">
-      <button class="btn ghost" style="flex:1" id="q-unit-btn">单元练</button>
-      <button class="btn ghost" style="flex:1" id="q-exam">模拟考(限时)</button>
+      <button class="btn ghost" style="flex:1" id="q-unit-btn">单元练(20)</button>
+      <button class="btn ghost" style="flex:1" id="q-exam">模拟考(限时20)</button>
       <button class="btn ghost" style="flex:1" id="q-wrong">错题本(<span id="wn">0</span>)</button>
+    </div>
+    <div class="grid">
+      <button class="btn ghost" style="flex:1" id="q-strong">强记·30题(含错题)</button>
     </div>
     <div id="quiz-box"></div>
     <div class="stat" id="quiz-stat"></div>
+    <div class="grid"><button class="btn ghost sm" id="q-reset">重置本册作答记录（可二刷）</button></div>
   </div>
   <div id="quiz-essay" style="display:none">
     <div class="hint">大题练手：基于赋分术语，先读材料/设问，点「显示赋分要点」对照背诵。（非计时，重在积累答题语言）</div>
@@ -294,6 +298,9 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
 <script>
 let DATA=null;   // 离线个人版为全量数据；学生版为 null，登录鉴权后从 /api/content 拉取
 const S=JSON.parse(localStorage.getItem('zb_site')||'null')||{quiz:{done:{},wrong:[]},cards:{known:[]}};
+// 兼容旧数据：补齐字段，避免老 localStorage 缺 reset/pick 时报错
+S.quiz=S.quiz||{};S.quiz.done=S.quiz.done||{};S.quiz.wrong=S.quiz.wrong||[];S.quiz.reset=S.quiz.reset||{};
+S.cards=S.cards||{};S.cards.known=S.cards.known||[];
 function save(){localStorage.setItem('zb_site',JSON.stringify(S)); if(MODE==='server') cloudPush();}
 function $(id){return document.getElementById(id);}
 const SUBJ=['政治','历史','地理','生物'];
@@ -312,7 +319,7 @@ function renderVol(){
 }
 
 // 顶部科目导航
-const nav=$('nav');SUBJ.forEach(s=>{const b=document.createElement('button');b.textContent=s;b.onclick=()=>{curSubj=s;curVol=VOL_DEF[s]||'';selNav();renderVol();volRefresh();};nav.appendChild(b);});
+const nav=$('nav');SUBJ.forEach(s=>{const b=document.createElement('button');b.textContent=s;b.onclick=()=>pickSubj(s);nav.appendChild(b);});
 function selNav(){[...nav.children].forEach((b,i)=>b.classList.toggle('on',SUBJ[i]===curSubj));}
 
 // 首页内容（学生/云端/GitHub 版 DATA 初始为 null，登录鉴权拉取资料后由 startApp 再渲染，故此处必须判空）
@@ -336,70 +343,161 @@ function switchPage(p){curPage=p;document.querySelectorAll('.nav2 a').forEach(x=
 document.querySelectorAll('.nav2 a').forEach(a=>a.onclick=()=>switchPage(a.dataset.p));
 
 // ===== 题库·选择题 =====
-let qSubj='',qUnit='',qList=[],qIdx=0,answered=false,timer=null,examLeft=0;
+// 顶部科目导航与题库内科目按钮共用同一套状态（curSubj/curVol），点哪一处都会同步切换。
+let qUnit='',qList=[],qIdx=0,qMode='seq',answered=false,autoT=null,timer=null,examLeft=0;
+function clearAuto(){if(autoT){clearTimeout(autoT);autoT=null;}}
+function pickSubj(s){
+  if(!DATA||!DATA.subjects||!DATA.subjects[s])return;
+  curSubj=s;curVol=VOL_DEF[s]||Object.keys(DATA.subjects[s])[0];
+  qUnit='';qList=[];qIdx=0;clearAuto();stopTimer();
+  selNav();renderVol();
+  if(curPage==='res')renderRes();
+  if(curPage==='quiz'){buildSubjFilter();$('quiz-box').innerHTML='';renderQuizStat();if(quizTab==='essay')renderEssays();}
+  if(curPage==='card'&&typeof loadCards==='function')loadCards();
+}
 function buildSubjFilter(){
-  const box=$('q-subj');box.innerHTML='';
-  [{'v':'','t':'全部科目'},...SUBJ.map(s=>({v:s,t:s}))].forEach(o=>{const c=document.createElement('span');c.className='chip'+(o.v===qSubj?' on':'');c.textContent=o.t;c.onclick=()=>{qSubj=o.v;buildSubjFilter();buildUnitFilter();};box.appendChild(c);});
+  const box=$('q-subj');if(!box)return;box.innerHTML='';
+  SUBJ.forEach(s=>{const c=document.createElement('span');c.className='chip'+(s===curSubj?' on':'');c.textContent=s;c.title='切换到'+s;c.onclick=()=>pickSubj(s);box.appendChild(c);});
   buildUnitFilter();
 }
 function buildUnitFilter(){
-  const box=$('q-unit');box.innerHTML='';
-  let pool=DATA.questions.filter(q=>q.volume===curVol&&(!qSubj||q.subject===qSubj));
+  const box=$('q-unit');if(!box)return;box.innerHTML='';
+  const pool=DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol);
   const units=[...new Set(pool.map(q=>q.unit))];
-  [{'v':'','t':'全部单元'},...units.map(u=>({v:u,t:u.slice(0,10)}))].forEach(o=>{const c=document.createElement('span');c.className='chip'+(o.v===qUnit?' on':'');c.textContent=o.t;c.onclick=()=>{qUnit=o.v;buildUnitFilter();};box.appendChild(c);});
+  [{'v':'','t':'全部单元（'+pool.length+'题）'},...units.map(u=>({v:u,t:u}))].forEach(o=>{const c=document.createElement('span');c.className='chip'+(o.v===qUnit?' on':'');c.textContent=o.t;c.title=o.t;c.onclick=()=>{qUnit=o.v;buildUnitFilter();$('quiz-box').innerHTML='';clearAuto();stopTimer();renderQuizStat();};box.appendChild(c);});
 }
 $('q-weekly').onclick=()=>startQuiz('weekly');
 $('q-seq').onclick=()=>startQuiz('seq');
 $('q-unit-btn').onclick=()=>startQuiz('unit');
 $('q-exam').onclick=()=>startQuiz('exam');
 $('q-wrong').onclick=()=>startQuiz('wrong');
-function poolOf(){let p=DATA.questions.filter(q=>q.volume===curVol&&(!qSubj||q.subject===qSubj)&&(!qUnit||q.unit===qUnit));return p;}
+$('q-strong').onclick=()=>startQuiz('strong');
+$('q-reset').onclick=()=>resetVolQuiz();
+// 出题池：顺序练/每周一练/模拟考 = 本册(全部单元)；单元练 = 指定单元；错题本 = 当前科目全部错题
+function poolOf(mode){
+  if(mode==='wrong'){const w=new Set(S.quiz.wrong);return DATA.questions.filter(q=>q.subject===curSubj&&w.has(q.id));}
+  let p=DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol);
+  if(mode==='unit'){if(!qUnit)return [];p=p.filter(q=>q.unit===qUnit);}
+  return p;
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+// 优先抽未练过的题，不够再用已练过的补齐（保证题量够）
+function pickN(pool,n){
+  const fresh=pool.filter(q=>!S.quiz.done[q.id]),old=pool.filter(q=>!!S.quiz.done[q.id]);
+  shuffle(fresh);shuffle(old);
+  const out=fresh.slice(0,n);
+  if(out.length<n)out.push.apply(out,old.slice(0,n-out.length));
+  return out;
+}
+// 顺序练按教材单元顺序排列（同单元内保持原顺序，补充题紧随其后）
+function seqOrder(pool){
+  if(!seqOrder._idx){const m=new Map();DATA.questions.forEach((x,i)=>m.set(x.id,i));seqOrder._idx=m;}
+  if(!seqOrder._uo){const o={};DATA.questions.forEach(x=>{const k=x.subject+'|'+x.volume+'|'+x.unit;if(!(k in o))o[k]=null;});let n=0;DATA.questions.forEach(x=>{const k=x.subject+'|'+x.volume+'|'+x.unit;if(o[k]===null)o[k]=n++;});seqOrder._uo=o;}
+  const idx=seqOrder._idx,uo=seqOrder._uo;
+  return pool.slice().sort((a,b)=>{const ka=uo[a.subject+'|'+a.volume+'|'+a.unit],kb=uo[b.subject+'|'+b.volume+'|'+b.unit];if(ka!==kb)return ka-kb;return idx.get(a.id)-idx.get(b.id);});
+}
 function startQuiz(mode){
-  let pool=poolOf();
-  if(mode==='wrong'){const w=new Set(S.quiz.wrong);pool=pool.filter(q=>w.has(q.id));if(!pool.length){alert('暂无错题，先去练题吧');return;}}
-  if(mode==='exam'){pool=pool.sort(()=>Math.random()-.5).slice(0,Math.min(20,pool.length));}
-  else if(mode==='weekly'){pool=pool.sort(()=>Math.random()-.5).slice(0,15);}
-  else if(mode==='unit'){if(!qUnit){alert('请先选一个单元');return;}}
-  if(!pool.length){alert('该范围暂无题目，换科目或单元试试');return;}
-  qList=pool;qIdx=0;answered=false;
-  if(mode==='exam'){examLeft=20*60;startTimer();}
-  else stopTimer();
-  renderQ(mode);
+  clearAuto();stopTimer();
+  const pool=poolOf(mode);
+  if(!pool.length){alert(mode==='unit'?'请先在上方选一个单元':(mode==='wrong'?'当前科目暂无错题，先去练题吧':'该范围暂无题目，换科目或单元试试'));return;}
+  if(mode==='seq')qList=seqOrder(pool);
+  else if(mode==='wrong')qList=pool.slice();
+  else if(mode==='unit'){ // 单元练：本单元全部 + 同册补够 20 题
+    const base=pool.slice();const full=DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol&&q.unit!==qUnit);
+    shuffle(full);qList=base.concat(full.slice(0,Math.max(0,20-base.length)));
+  }
+  else if(mode==='strong'){ // 强记·30题：优先错题，再补同册
+    const w=new Set(S.quiz.wrong);
+    const wr=DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol&&w.has(q.id));
+    const ot=DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol&&!w.has(q.id));
+    shuffle(ot);qList=wr.concat(ot.slice(0,Math.max(0,30-wr.length)));
+  }
+  else if(mode==='weekly')qList=pickN(pool,15);
+  else qList=pickN(pool,20); // exam
+  qMode=mode;
+  if(mode==='seq'){const k=qList.findIndex(q=>!S.quiz.done[q.id]);qIdx=k<0?0:k;}else qIdx=0;
+  answered=false;
+  if(mode==='exam'){examLeft=20*60;startTimer();}else stopTimer();
+  renderQ();
   renderQuizStat();
   window.scrollTo(0,0);
 }
 function startTimer(){stopTimer();const t=()=>{examLeft--;const m=Math.floor(examLeft/60),s=examLeft%60;$('exam-t').textContent=`⏱ ${m}:${s<10?'0':''}${s}`;if(examLeft<=0){doExamEnd();}};timer=setInterval(t,1000);}
 function stopTimer(){if(timer){clearInterval(timer);timer=null;}}
-function renderQ(mode){
-  const q=qList[qIdx];answered=false;const box=$('quiz-box');
+function renderQ(){
+  clearAuto();
+  const q=qList[qIdx];const box=$('quiz-box');const mode=qMode;
+  const d=S.quiz.done[q.id];const locked=(mode!=='wrong')&&!!d;answered=locked;
   const quit=`<div class="quit"><span><b>${q.subject}·${q.unit}</b>（第${qIdx+1}/${qList.length}题${mode==='exam'?' · <span id="exam-t">⏱ 20:00</span>':''}）</span><button class="btn ghost sm" onclick="exitQuiz()">⏹ 退出练习</button></div>`;
-  let opts='';['A','B','C','D'].filter(k=>q.options[k]).forEach(k=>opts+=`<button class="opt" data-k="${k}">${k}． ${q.options[k]}</button>`);
-  box.innerHTML=quit+`<div class="bar"><i style="width:${qIdx/qList.length*100}%"></i></div><div class="q"><div class="stem">${q.stem}</div>${opts}<div class="expl" id="ex"></div></div>
+  let opts='';['A','B','C','D'].filter(k=>q.options[k]).forEach(k=>opts+=`<button class="opt${locked?' dim':''}${locked&&k===q.answer?' ok':''}" data-k="${k}">${k}． ${q.options[k]}</button>`);
+  const tip=locked?`<div class="hint" style="background:#fff8e1;border-color:#ffe0a3;color:#8a6d00;margin:0 0 8px">🔒 本题已作答（${d.r>0?'此前答对':'此前答错'}），按「每题只做一次」不可重答；可看解析后点下一题，或点题库页底部「重置本册」再二刷。</div>`:'';
+  box.innerHTML=quit+tip+`<div class="bar"><i style="width:${qIdx/qList.length*100}%"></i></div><div class="q"><div class="stem">${q.stem}</div>${opts}<div class="expl${locked?' on':''}" id="ex"></div></div>
   <div class="grid"><button class="btn ghost sm" onclick="prevQ()">← 上一题</button><button class="btn sm" onclick="nextQ()">下一题 →</button></div>`;
-  box.querySelectorAll('.opt').forEach(b=>b.onclick=()=>ans(b.dataset.k,mode));
+  if(locked){const ex=$('ex');ex.textContent='【答案】'+q.answer+'　【解析】'+q.expl;}
+  box.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{if(answered)return;ans(b.dataset.k);});
 }
-function ans(k,mode){
-  if(answered)return;answered=true;const q=qList[qIdx];const box=$('quiz-box');
+function ans(k){
+  if(answered)return;answered=true;
+  const q=qList[qIdx];const box=$('quiz-box');
   box.querySelectorAll('.opt').forEach(b=>{b.classList.add('dim');if(b.dataset.k===q.answer)b.classList.add('ok');});
   const me=box.querySelector('.opt[data-k="'+k+'"]');if(k!==q.answer)me.classList.add('no');
-  const ex=$('ex');ex.textContent='【答案】'+q.answer+'　【解析】'+q.expl;ex.classList.add('on');
+  const wasWrong=S.quiz.wrong.indexOf(q.id)>=0;
   S.quiz.done[q.id]=S.quiz.done[q.id]||{n:0,r:0};S.quiz.done[q.id].n++;
-  if(k===q.answer)S.quiz.done[q.id].r++;else if(!S.quiz.wrong.includes(q.id))S.quiz.wrong.push(q.id);
-  save();$('wn').textContent=S.quiz.wrong.length;renderQuizStat();
+  let extra='';
+  if(k===q.answer){
+    S.quiz.done[q.id].r++;
+    if(wasWrong){S.quiz.wrong=S.quiz.wrong.filter(x=>x!==q.id);extra='　✅ 答对，已移出错题本';}
+  }else if(!wasWrong){S.quiz.wrong.push(q.id);extra='　❌ 已加入错题本';}
+  if(S.quiz.reset)delete S.quiz.reset[q.id];
+  const ex=$('ex');ex.textContent='【答案】'+q.answer+'　【解析】'+q.expl+extra;ex.classList.add('on');
+  save();renderQuizStat();
+  const delay=(k===q.answer)?1800:3200;
+  const last=(qIdx>=qList.length-1);
+  const nt=document.createElement('div');nt.className='muted';
+  nt.style.cssText='margin-top:10px;font-size:12.5px';
+  nt.textContent=last?(qMode==='exam'?'⏱ 即将交卷…':'⏱ 即将完成本组…'):('⏱ '+Math.round(delay/1000)+' 秒后自动进入下一题…');
+  ex.parentNode.appendChild(nt);
+  clearAuto();autoT=setTimeout(()=>{nextQ();},delay);
 }
-function prevQ(){if(qIdx>0){qIdx--;renderQ(curMode());}}
-function nextQ(){if(qIdx<qList.length-1){qIdx++;renderQ(curMode());}else{if(curMode()==='exam'){doExamEnd();}else{$('quiz-box').innerHTML='<div class="hint" style="text-align:center">🎉 本组完成！点下方按钮返回或再来一组</div>'+'<button class="btn ghost" onclick="exitQuiz()">返回题库首页</button>';}}}
-function curMode(){return $('exam-t')?'exam':'normal';}
-function exitQuiz(){stopTimer();$('quiz-box').innerHTML='<div class="hint">已退出本次练习。可重新选择模式开始，或切换科目/单元。</div>';renderQuizStat();}
-function doExamEnd(){stopTimer();let n=0,r=0;qList.forEach(q=>{const d=S.quiz.done[q.id];if(d){n+=d.n;r+=d.r;}});alert('模拟考结束！本卷 '+qList.length+' 题，本卷正确率 '+(n?Math.round(r/n*100):0)+'%。累计数据见「进度」。');exitQuiz();}
-function renderQuizStat(){let n=0,r=0;Object.values(S.quiz.done).forEach(d=>{n+=d.n;r+=d.r;});const rate=n?Math.round(r/n*100):0;$('quiz-stat').innerHTML=`练习进度：累计 ${n} 题次 · 正确 ${r} · <b>得分率 ${rate}%</b> · 错题 ${S.quiz.wrong.length} 道`;$('wn').textContent=S.quiz.wrong.length;}
+function prevQ(){clearAuto();if(qIdx>0){qIdx--;renderQ();window.scrollTo(0,0);}}
+function nextQ(){
+  clearAuto();
+  if(qIdx<qList.length-1){qIdx++;renderQ();window.scrollTo(0,0);return;}
+  if(qMode==='exam'){doExamEnd();return;}
+  $('quiz-box').innerHTML='<div class="hint" style="text-align:center">🎉 本组完成！共 '+qList.length+' 题，已完成全部作答。</div><div class="grid"><button class="btn ghost" onclick="exitQuiz()">返回题库首页</button></div>';
+}
+function exitQuiz(){clearAuto();stopTimer();qList=[];qIdx=0;$('quiz-box').innerHTML='<div class="hint">已退出本次练习。可重新选择模式开始，或切换科目/单元。</div>';renderQuizStat();}
+function doExamEnd(){clearAuto();stopTimer();let n=0,r=0;qList.forEach(q=>{const d=S.quiz.done[q.id];if(d){n+=d.n;r+=d.r;}});alert('模拟考结束！本卷 '+qList.length+' 题，本卷正确率 '+(n?Math.round(r/n*100):0)+'%。累计数据见「进度」。');exitQuiz();}
+// 重置本册作答记录（用于二刷）：本地删除作答记录，并用 reset 标记防止云端旧记录合并回来
+function resetVolQuiz(){
+  const qs=DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol);
+  if(!qs.length)return;
+  if(!confirm('重置「'+curSubj+'·'+curVol+'」共 '+qs.length+' 题的作答记录？\n错题也会一并清空，重置后可重新二刷。'))return;
+  S.quiz.reset=S.quiz.reset||{};
+  qs.forEach(q=>{delete S.quiz.done[q.id];S.quiz.reset[q.id]=1;});
+  const ids=new Set(qs.map(q=>q.id));
+  S.quiz.wrong=S.quiz.wrong.filter(id=>!ids.has(id));
+  clearAuto();stopTimer();qList=[];$('quiz-box').innerHTML='<div class="hint">已重置本册作答记录，可以重新开始练习了。</div>';
+  save();renderQuizStat();
+}
+function renderQuizStat(){
+  let n=0,r=0;Object.values(S.quiz.done).forEach(d=>{n+=d.n;r+=d.r;});const rate=n?Math.round(r/n*100):0;
+  const vp=(DATA&&DATA.questions)?DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol):[];
+  const undone=vp.filter(q=>!S.quiz.done[q.id]).length;
+  $('quiz-stat').innerHTML=`练习进度：累计 ${n} 题次 · 正确 ${r} · <b>得分率 ${rate}%</b> · 错题 ${S.quiz.wrong.length} 道<br><span style="font-size:12.5px;color:#5c6878">本册 ${curSubj}·${curVol} 共 ${vp.length} 题，未练 ${undone} 题</span>`;
+  $('wn').textContent=S.quiz.wrong.length;
+}
 
 // ===== 题库·大题练手 =====
 $('quiz-tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{quizTab=b.dataset.t;[...$('quiz-tabs').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');$('quiz-choice').style.display=quizTab==='choice'?'block':'none';$('quiz-essay').style.display=quizTab==='essay'?'block':'none';if(quizTab==='essay')renderEssays();});
 function renderEssays(){
-  const list=DATA.essays.filter(e=>!qSubj||e.subject===qSubj);
-  let h='';
-  list.forEach((e,i)=>{h+=`<div class="essay"><div class="meta">${e.subject} · 大题练手</div><div class="stem" style="white-space:pre-wrap"><b>设问：</b>${esc(e.prompt)}</div><button class="btn ghost sm" onclick="showPt(${i})">显示赋分要点</button><ul class="pt" id="pt${i}">${e.points.map(p=>'<li>'+esc(p)+'</li>').join('')}</ul></div>`;});
+  // 大题练手不跟科目筛选绑定：全部科目大题按科目分组展示（题量不大，一次看全）
+  const list=DATA.essays.slice();
+  const order={};SUBJ.forEach((s,i)=>order[s]=i);
+  list.sort((a,b)=>(order[a.subject]||0)-(order[b.subject]||0));
+  let h='',lastS='';
+  list.forEach((e,i)=>{if(e.subject!==lastS){lastS=e.subject;h+=`<div class="muted" style="margin:12px 0 4px;font-size:13px"><b>${e.subject}</b></div>`;}
+    h+=`<div class="essay"><div class="meta">${e.subject} · ${e.volume||''} 大题练手</div><div class="stem" style="white-space:pre-wrap"><b>设问：</b>${esc(e.prompt)}</div><button class="btn ghost sm" onclick="showPt(${i})">显示赋分要点</button><ul class="pt" id="pt${i}">${e.points.map(p=>'<li>'+esc(p)+'</li>').join('')}</ul></div>`;});
   if(!list.length)h='<p class="muted">暂无可练大题</p>';
   $('essay-box').innerHTML=h;
 }
@@ -430,7 +528,7 @@ function renderVolStat(){
   <tbody>${rows}<tr class="vsum"><td colspan="2"><b>合计</b></td><td><b>${grand.t}</b></td><td>${grand.n}</td><td>${grand.n?Math.round(grand.r/grand.n*100)+'%':'—'}</td><td>${grand.w}</td><td>${grand.c}</td><td>${grand.k}</td></tr></tbody></table>
   <p class="muted" style="font-size:12px">题数=该册该科的选择题总量（上方「题库」页按上册/下册切换练习）；错题可在题库页「错题本」重练。</p>`;
 }
-$('st-clear').onclick=()=>{if(confirm('清空全部进度？')){S={quiz:{done:{},wrong:[]},cards:{known:[]}};save();renderStat();renderQuizStat();$('wn').textContent=0;}};
+$('st-clear').onclick=()=>{if(confirm('清空全部进度？')){S={quiz:{done:{},wrong:[],reset:{}},cards:{known:[]}};save();renderStat();renderQuizStat();$('wn').textContent=0;}};
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ===== 学习排行榜 + 每日签到（云端互动） =====
@@ -569,10 +667,10 @@ const WX = { id: '鑫辰', name: '鑫辰（广东·佛山）' };
 // 资料内容本身也不内嵌在此文件，必须「登录 + 审核通过 + 已开通会员」后
 // 由服务端 /api/content 下发。
 let MODE = 'offline';
-const API_BASES = "https://zxdl-site.app.workbuddy.host".split('|').map(s=>s.trim()).filter(Boolean);
+const API_BASES = "".split('|').map(s=>s.trim()).filter(Boolean);
 let API_BASE_IDX = 0;
 try{ const bi=parseInt(localStorage.getItem('zb_base')||'0',10); if(bi>=0&&bi<API_BASES.length) API_BASE_IDX=bi; }catch(e){}
-const API_SHARE = "WCFFGHPYRB";
+const API_SHARE = "";
 const API = {
   async call(path, body){
     const bases = API_BASES.length ? API_BASES : [''];
@@ -620,8 +718,10 @@ async function cloudLoad(){
 }
 function mergeCloud(){
   if(!CLOUD) return;
-  CLOUD.wrong.forEach(id=>{ if(!S.quiz.wrong.includes(id)) S.quiz.wrong.push(id); });
+  const RS=S.quiz.reset||{};
+  CLOUD.wrong.forEach(id=>{ if(RS[id])return; if(!S.quiz.wrong.includes(id)) S.quiz.wrong.push(id); });
   Object.keys(CLOUD.done).forEach(id=>{
+    if(RS[id])return; // 本地已重置过，不用云端旧记录覆盖
     const cd=CLOUD.done[id]||{n:0,r:0}, ld=S.quiz.done[id]||{n:0,r:0};
     S.quiz.done[id]={n:Math.max(cd.n||0,ld.n||0), r:Math.max(cd.r||0,ld.r||0)};
   });
