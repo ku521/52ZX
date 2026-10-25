@@ -836,6 +836,9 @@ function startRec(){
       }
       $('rec-trans').innerHTML=esc(_recFinal)+'<span class="muted">'+esc(inter)+'</span>';
     };
+    _recSR.onstart=()=>{ // 每次真正开始录音的瞬间，强制隐藏上轮评分与标准答案对照
+      $('rec-score').classList.add('hide'); $('rec-diff').classList.add('hide'); $('rec-pass').style.display='none';
+    };
     _recSR.onerror=(e)=>{ $('rec-trans').innerHTML='<span class="muted">识别出错：'+esc(e.error||'未知')+'，可在下方手动输入。</span>'; $('rec-edit').classList.remove('hide'); };
     _recSR.onend=()=>{ _recRunning=false; $('rec-start').disabled=false; $('rec-start').classList.remove('on'); $('rec-stop').disabled=true; showRecEdit(_recFinal); };
     _recSR.start(); _recRunning=true;
