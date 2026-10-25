@@ -101,6 +101,11 @@ table.vtbl .vsum td{background:#fff8ec}
 #q-unit{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:6px 0}
 #q-unit .chip{display:flex;align-items:center;justify-content:center;min-height:36px;padding:7px 6px;text-align:center;line-height:1.25;border-radius:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #q-unit .chip.all{grid-column:1 / -1;font-weight:600}
+/* 两行单元标签：第一行章名（小字），第二行节名（主文字），消除“第1节”重复歧义 */
+#q-unit .chip.u2{flex-direction:column;justify-content:center;gap:1px;white-space:normal;min-height:50px;padding:6px 8px}
+#q-unit .chip.u2 .ch{font-size:10px;line-height:1.1;color:#8b97a8;font-style:normal;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#q-unit .chip.u2 .sec{font-size:12.5px;font-weight:600;line-height:1.25;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#q-unit .chip.u2.on .ch{color:rgba(255,255,255,.85)}
 .mem-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
 .mem{background:#f0f7ff;border:1px solid #cfe3ff;border-radius:8px;padding:9px 11px;font-size:13px}.mem b{color:#1a5fb4}
 .phase{border-radius:10px;padding:12px 14px;margin:14px 0}
@@ -395,22 +400,36 @@ function buildSubjFilter(){
   fitChips(box);
   buildUnitFilter();
 }
+function dU(u){return (u||'').replace(/｜/g,' · ');} // 显示用：把内部章｜节分隔符换成 ·
 function buildUnitFilter(){
   const box=$('q-unit');if(!box)return;box.innerHTML='';
   const pool=DATA.questions.filter(q=>q.subject===curSubj&&q.volume===curVol);
   const units=[...new Set(pool.map(q=>q.unit))];
-  [{'v':'','t':'全部单元（'+pool.length+'题）','all':1},...units.map(u=>({v:u,t:u}))].forEach(o=>{
-    const c=document.createElement('span');c.className='chip'+(o.all?' all':'')+(o.v===qUnit?' on':'');c.textContent=o.t;c.title=o.t;
+  [{'v':'','t':'全部单元（'+pool.length+'题）','all':1},...units.map(u=>({v:u,t:dU(u)}))].forEach(o=>{
+    const c=document.createElement('span');
+    const two=!!o.v&&o.v.indexOf('｜')>=0;
+    c.className='chip'+(o.all?' all':'')+(two?' u2':'')+(o.v===qUnit?' on':'');
+    if(two){const a=o.v.split('｜');c.innerHTML='<i class="ch"></i><b class="sec"></b>';c.querySelector('.ch').textContent=a[0];c.querySelector('.sec').textContent=a[1];}
+    else c.textContent=o.t;
+    c.title=o.t;
     c.onclick=()=>{qUnit=o.v;buildUnitFilter();$('quiz-box').innerHTML='';clearAuto();stopTimer();renderQuizStat();};
     box.appendChild(c);});
   fitChips(box);
 }
-// 标签文字自适应缩字号：放不下就逐级缩小（最低 9.5px），保证一行显示、两列对齐
+// 标签文字自适应缩字号：放不下就逐级缩小，保证一行显示、两列对齐（两行标签分别处理章/节两行）
 function fitChips(box){
   if(!box||!box.clientWidth)return;
   [...box.children].forEach(c=>{
-    let fs=13.5;c.style.fontSize=fs+'px';let guard=0;
-    while(c.scrollWidth>c.clientWidth+1&&fs>9.5&&guard++<30){fs-=0.5;c.style.fontSize=fs+'px';}
+    const ch=c.querySelector && c.querySelector('.ch'), sec=c.querySelector && c.querySelector('.sec');
+    const targets = sec ? [ch, sec] : [c];
+    targets.forEach(t=>{
+      if(!t) return;
+      const isCh=t.classList.contains('ch'), isSec=t.classList.contains('sec');
+      let fs = isCh ? 10 : (isSec ? 12.5 : 13.5);
+      const lo = isCh ? 8.5 : 9.5;
+      t.style.fontSize=fs+'px';let guard=0;
+      while(t.scrollWidth>t.clientWidth+1&&fs>lo&&guard++<30){fs-=0.5;t.style.fontSize=fs+'px';}
+    });
   });
 }
 $('q-weekly').onclick=()=>startQuiz('weekly');
@@ -488,7 +507,7 @@ function renderQ(){
   clearAuto();
   const q=qList[qIdx];const box=$('quiz-box');const mode=qMode;
   const d=S.quiz.done[q.id];const locked=(mode!=='wrong')&&!!d;answered=locked;
-  const quit=`<div class="quit"><span><b>${q.subject}·${q.unit}</b>（第${qIdx+1}/${qList.length}题${mode==='exam'?' · <span id="exam-t">⏱ 20:00</span>':''}）</span><button class="btn ghost sm" onclick="exitQuiz()">⏹ 退出练习</button></div>`;
+  const quit=`<div class="quit"><span><b>${q.subject}·${dU(q.unit)}</b>（第${qIdx+1}/${qList.length}题${mode==='exam'?' · <span id="exam-t">⏱ 20:00</span>':''}）</span><button class="btn ghost sm" onclick="exitQuiz()">⏹ 退出练习</button></div>`;
   let opts='';['A','B','C','D'].filter(k=>q.options[k]).forEach(k=>opts+=`<button class="opt${locked?' dim':''}${locked&&k===q.answer?' ok':''}" data-k="${k}">${k}． ${q.options[k]}</button>`);
   const tip=locked?`<div class="hint" style="background:#fff8e1;border-color:#ffe0a3;color:#8a6d00;margin:0 0 8px">🔒 本题已作答（${d.r>0?'此前答对':'此前答错'}），按「每题只做一次」不可重答；可看解析后点下一题，或点题库页底部「重置本册」再二刷。</div>`:'';
   box.innerHTML=quit+tip+`<div class="bar"><i style="width:${qIdx/qList.length*100}%"></i></div><div class="q"><div class="stem">${q.stem}</div>${opts}<div class="expl${locked?' on':''}" id="ex"></div></div>
@@ -673,7 +692,7 @@ function startApp(){
 
 // ===== 原句过关背诵（翻卡记背，进度存 S.cards.known 并同步云端） =====
 let cSubj='',cUnit='',cTag='',cList=[],cIdx=0,cFlip=false;
-function cardKey(c){return c.subject+'@@'+c.unit+'@@'+c.front;}
+function cardKey(c){return c.subject+'@@'+((c.unit||'').split('｜').pop())+'@@'+c.front;} // 只用节名做键，改名后"已会"记录不失效
 function _cards(){return (DATA&&DATA.cards)||[];}
 function selChip(scope,el){document.querySelectorAll(scope+' .chip').forEach(x=>x.classList.remove('on'));if(el)el.classList.add('on');}
 function buildCardSubj(){
@@ -688,7 +707,7 @@ function buildCardSubj(){
 function fillCUnits(){
   const box=$('c-unit');if(!box)return;box.innerHTML='<option value="">全部单元</option>';
   const us=[...new Set(_cards().filter(c=>(!cSubj||c.subject===cSubj)).map(c=>c.unit))];
-  us.forEach(u=>{const o=document.createElement('option');o.value=u;o.textContent=u;box.appendChild(o);});
+  us.forEach(u=>{const o=document.createElement('option');o.value=u;o.textContent=dU(u);box.appendChild(o);});
 }
 function loadCards(){
   const area=$('card-area');if(!area)return;
@@ -705,7 +724,7 @@ function renderCard(){
   area.innerHTML=`<div class="fcard" onclick="cFlipCard()">
     <span class="bt ${c.tag}">${c.tag}</span>${c.star?'<span class="st">★</span>':''}
     <div class="fr">${esc(c.front)}</div>${back}
-    <span class="unit">${c.unit}${known?' · 已会':''}</span></div>`;
+    <span class="unit">${dU(c.unit)}${known?' · 已会':''}</span></div>`;
   const left=cList.length-S.cards.known.filter(k=>cList.some(c=>cardKey(c)===k)).length;
   $('c-prog').textContent=`第 ${cIdx+1} / ${cList.length} 张 · 本范围待巩固 ${left} 张`;
   cFlip=false;
