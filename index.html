@@ -247,7 +247,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
 
   <!-- 背诵录音评分面板 -->
   <div id="recite-box" class="hide">
-    <div class="rec-prompt">🎙 请看着上方题目，凭记忆把答案完整背出来（可先翻面看答案，开录时会自动隐藏）。</div>
+    <div class="rec-prompt">🎙 点「背给我听」后，卡片会自动隐藏，请凭记忆把答案完整背出来。</div>
     <div class="rec-trans" id="rec-trans"><span class="muted">点击「开始录音」后，这里会实时显示你说的话…</span></div>
     <div class="rec-ctrls">
       <button class="btn rec" id="rec-start">● 开始录音</button>
@@ -760,6 +760,7 @@ function fillCUnits(){
   us.forEach(u=>{const o=document.createElement('option');o.value=u;o.textContent=dU(u);box.appendChild(o);});
 }
 function loadCards(){
+  if($('recite-box')&&!$('recite-box').classList.contains('hide'))closeRecite();
   const area=$('card-area');if(!area)return;
   if(!_cards().length){area.innerHTML='<div class="hint">资料加载中或暂无可背卡片。</div>';return;}
   cList=_cards().filter(c=>(!cSubj||c.subject===cSubj)&&(!cUnit||c.unit===cUnit)&&(!cTag||c.tag===cTag)&&!S.cards.known.includes(cardKey(c)));
@@ -781,7 +782,7 @@ function renderCard(){
   cFlip=false;
 }
 function cFlipCard(){cFlip=!cFlip;renderCard();}
-function nextCard(){if(cIdx<cList.length-1){cIdx++;renderCard();}else{const area=$('card-area');area.innerHTML='<div class="hint">本组看完啦 ✅ 点「重置已记住」可重来，或切换科目/标签继续。</div>';$('c-prog').textContent='已完成本组';}}
+function nextCard(){if($('recite-box')&&!$('recite-box').classList.contains('hide'))closeRecite();if(cIdx<cList.length-1){cIdx++;renderCard();}else{const area=$('card-area');area.innerHTML='<div class="hint">本组看完啦 ✅ 点「重置已记住」可重来，或切换科目/标签继续。</div>';$('c-prog').textContent='已完成本组';}}
 $('c-yes').onclick=()=>{ // 手动“我会了”：只移出牌堆，不写云端 known → 不计分（防刷分）
   const c=cList[cIdx];if(!c)return;const k=cardKey(c);
   if(!S.cards.known.includes(k))S.cards.known.push(k);
@@ -804,7 +805,10 @@ function openRecite(){
   const c=cList[cIdx]; if(!c) return;
   _recCard=c; _recKey=cardKey(c); _recFinal='';
   cFlip=false; renderCard();            // 隐藏答案，凭记忆背
+  $('card-area').style.display='none';  // 录音时整张卡片内容自动隐藏，防偷看
   const box=$('recite-box'); box.classList.remove('hide');
+  const rp=box.querySelector('.rec-prompt');
+  if(rp) rp.innerHTML='🎯 请凭记忆背出：<b>'+esc(c.front)+'</b>（卡片已隐藏，开录即从记忆背诵）';
   $('rec-score').classList.add('hide'); $('rec-diff').classList.add('hide');
   $('rec-trans').innerHTML='<span class="muted">点击「开始录音」后，这里会实时显示你说的话…</span>';
   $('rec-start').disabled=false; $('rec-stop').disabled=true; $('rec-pass').style.display='none';
@@ -812,7 +816,7 @@ function openRecite(){
   if(SR){ fb.classList.add('hide'); } else { fb.classList.remove('hide'); }
   box.scrollIntoView({behavior:'smooth',block:'center'});
 }
-function closeRecite(){ $('recite-box').classList.add('hide'); if(_recRunning) stopRec(); }
+function closeRecite(){ $('recite-box').classList.add('hide'); $('card-area').style.display=''; if(_recRunning) stopRec(); }
 function startRec(){
   if(!SR){ $('rec-fallback').classList.remove('hide'); return; }
   try{
@@ -835,7 +839,7 @@ function startRec(){
 }
 function stopRec(){ try{ if(_recSR) _recSR.stop(); }catch(e){} }
 async function gradeRecite(transcript){
-  const c=_recCard; if(!c) return;
+  const c=cList[cIdx]; if(!c) return; _recCard=c; _recKey=cardKey(c); // 始终用当前显示的卡，标准答案同步索引
   const box=$('rec-score'); box.classList.remove('hide');
   box.innerHTML='评分中…';
   const localScore=textSim(transcript,c.back);
