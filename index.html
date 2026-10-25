@@ -146,6 +146,32 @@ header .u button{background:rgba(255,255,255,.22);border:1px solid rgba(255,255,
 body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-webkit-user-select:text}
 .le-btns{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:12px}
 .le-btns .btn{text-decoration:none;margin:0}
+/* ===== 背诵录音评分面板 ===== */
+#recite-box{background:#f3f8ff;border:1.5px solid #bcd4ff;border-radius:14px;padding:14px;margin:12px 0}
+#recite-box .rec-prompt{font-size:13.5px;color:#1a5fb4;margin-bottom:8px;line-height:1.5;font-weight:600}
+.rec-trans{background:#fff;border:1px solid #d4e2f7;border-radius:10px;padding:10px 12px;min-height:52px;font-size:14px;line-height:1.6;color:#1d2733;white-space:pre-wrap;word-break:break-word}
+.rec-trans .muted{color:#9aa6b6}
+.rec-ctrls{display:flex;gap:10px;margin:10px 0}
+.rec-ctrls .btn{flex:1}
+.btn.rec{background:#d93b3b}
+.btn.rec.on{background:#b3261e;animation:pulse 1.1s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(217,59,59,.5)}70%{box-shadow:0 0 0 10px rgba(217,59,59,0)}100%{box-shadow:0 0 0 0 rgba(217,59,59,0)}}
+.rec-score{font-size:15px;margin:6px 0;font-weight:700}
+.rec-score .ok{color:#0f9d58}.rec-score .bad{color:#d93b3b}
+.rec-diff{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.rec-diff .rec-col{background:#fff;border:1px solid #e1e8f2;border-radius:10px;padding:9px 10px}
+.rec-diff .rec-h{font-size:12px;color:#6b7787;margin-bottom:5px;font-weight:700}
+.rec-diff .rec-txt{font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.rec-diff .rec-txt.exp{color:#1a5fb4}
+.rec-actions{display:flex;gap:10px;flex-wrap:wrap}
+.rec-actions .btn{flex:1;min-width:120px}
+.rec-fallback{margin-top:10px;background:#fff7e6;border:1px solid #ffe0a3;border-radius:10px;padding:10px}
+.rec-fallback textarea{width:100%;min-height:70px;border:1px solid #d7dfea;border-radius:8px;padding:8px;font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box;margin:6px 0}
+.rec-fallback .btn{width:100%}
+@media(max-width:430px){
+  .rec-diff{grid-template-columns:1fr}
+  .rec-score{font-size:14px}
+}
 </style></head>
 <body>
 <header><div class="hrow"><div class="hmain"><h1>政史地生学习站</h1><div class="s">政治/历史/地理/生物 · 资料/导图/知识点/路线 · 题库(单元练·模拟考·大题) · 免费使用</div></div><div class="hacts"><span class="u" id="lineLabel" onclick="switchLine(1)" style="cursor:pointer"></span><span class="u" id="hdrUser"></span></div></div></header>
@@ -208,7 +234,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
 
 <!-- 原句过关背诵（翻卡记背） -->
 <section class="page" id="pg-card">
-  <div class="hint">原句过关背诵：点卡片翻面看答案；「已记住」会从牌堆移除并计入过关，「还没记住」留下次再刷。★=高频必背，赋分=大题得分句，必修=核心考点。</div>
+  <div class="hint">原句过关背诵：点卡片翻面看答案，凭记忆「🎤 背给我听」录音转文字、与标准答案比对评分；过关才计入背诵 +5 分（防刷分）。「还没记住」留下次再刷，「我已背出(不计分)」只移出牌堆不计分。★=高频必背，赋分=大题得分句，必修=核心考点。</div>
   <div class="kfilter" id="c-subj"></div>
   <div class="grid"><select class="sel" id="c-unit" style="flex:1"><option value="">全部单元</option></select></div>
   <div class="kfilter" id="c-tag">
@@ -218,9 +244,33 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
     <span class="chip" data-t="赋分">赋分</span>
   </div>
   <div id="card-area"></div>
+
+  <!-- 背诵录音评分面板 -->
+  <div id="recite-box" class="hide">
+    <div class="rec-prompt">🎙 请看着上方题目，凭记忆把答案完整背出来（可先翻面看答案，开录时会自动隐藏）。</div>
+    <div class="rec-trans" id="rec-trans"><span class="muted">点击「开始录音」后，这里会实时显示你说的话…</span></div>
+    <div class="rec-ctrls">
+      <button class="btn rec" id="rec-start">● 开始录音</button>
+      <button class="btn g" id="rec-stop" disabled>■ 停止并评分</button>
+    </div>
+    <div class="rec-score hide" id="rec-score"></div>
+    <div class="rec-diff hide" id="rec-diff"></div>
+    <div class="rec-actions">
+      <button class="btn ghost" id="rec-retry">再试一次</button>
+      <button class="btn g" id="rec-pass" style="display:none">✅ 确认过关</button>
+      <button class="btn ghost" id="rec-cancel">关闭</button>
+    </div>
+    <div class="rec-fallback hide" id="rec-fallback">
+      <div style="font-size:12.5px;color:#8a6d00">当前环境不支持语音识别（如本地离线打开），可手动输入你背诵的内容，同样会比对评分：</div>
+      <textarea id="rec-type" placeholder="在此输入你背诵的答案…"></textarea>
+      <button class="btn g" id="rec-type-go">提交评分</button>
+    </div>
+  </div>
+
   <div class="grid">
-    <button class="btn ghost" style="flex:1" id="c-no">还没记住</button>
-    <button class="btn g" style="flex:1" id="c-yes">已记住 ✓</button>
+    <button class="btn ghost" style="flex:1" id="c-no">🙈 还没记住</button>
+    <button class="btn" style="flex:1.2" id="c-recite">🎤 背给我听（录音评分）</button>
+    <button class="btn ghost" style="flex:1" id="c-yes">✅ 我已背出（不计分）</button>
   </div>
   <div class="muted" id="c-prog" style="text-align:center;margin:8px 0;font-size:13px"></div>
   <button class="btn ghost" id="c-reset">重置已记住</button>
@@ -336,7 +386,7 @@ let DATA=null;   // 离线个人版为全量数据；学生版为 null，登录�
 const S=JSON.parse(localStorage.getItem('zb_site')||'null')||{quiz:{done:{},wrong:[]},cards:{known:[]}};
 // 兼容旧数据：补齐字段，避免老 localStorage 缺 reset/pick 时报错
 S.quiz=S.quiz||{};S.quiz.done=S.quiz.done||{};S.quiz.wrong=S.quiz.wrong||[];S.quiz.reset=S.quiz.reset||{};
-S.cards=S.cards||{};S.cards.known=S.cards.known||[];
+S.cards=S.cards||{};S.cards.known=S.cards.known||[];S.cards.verified=S.cards.verified||[];
 function save(){localStorage.setItem('zb_site',JSON.stringify(S)); if(MODE==='server') cloudPush();}
 function $(id){return document.getElementById(id);}
 const SUBJ=['政治','历史','地理','生物'];
@@ -583,7 +633,7 @@ function renderEssays(){
 function showPt(i){const el=$('pt'+i);el.classList.toggle('on');}
 
 // ===== 进度页 =====
-function renderStat(){let n=0,r=0;Object.values(S.quiz.done).forEach(d=>{n+=d.n;r+=d.r;});$('st-q').innerHTML=`刷题：累计 ${n} 题次 · 正确率 ${n?Math.round(r/n*100):0}% · 错题 ${S.quiz.wrong.length}`;const tot=DATA.cards.length,known=S.cards.known.length;$('st-c').innerHTML=`背诵卡：总数 ${tot} · 已会 ${known} · 待巩固 ${tot-known}`;renderVolStat();}
+function renderStat(){let n=0,r=0;Object.values(S.quiz.done).forEach(d=>{n+=d.n;r+=d.r;});$('st-q').innerHTML=`刷题：累计 ${n} 题次 · 正确率 ${n?Math.round(r/n*100):0}% · 错题 ${S.quiz.wrong.length}`;const tot=DATA.cards.length,known=S.cards.known.length,ver=S.cards.verified.length;$('st-c').innerHTML=`背诵卡：总数 ${tot} · 已会 ${known} · 语音过关 ${ver} · 待巩固 ${tot-known}`;renderVolStat();}
 // 按教材册 × 科目 统计题库题量与练习进度
 function renderVolStat(){
   const box=$('st-vol');if(!box)return;
@@ -668,7 +718,7 @@ function renderRank(ck,rk){
      +'<div class="rk-sub">做题 '+r.quiz_n+' · 正确率 '+r.rate+'% · 背诵 '+r.cards+' · 签到 '+r.ck_days+' 天'+(r.streak>=3?' · 🔥连签'+r.streak+'天':'')+'</div></div>'
      +'<div class="rk-pts">'+r.score+'</div></div>').join('')
      :'<div class="hint">还没有成员数据</div>')
-   +'<div class="hint">积分规则：签到 +10 分/天，连签第 3 天起每天额外 +2×连签天数（封顶 +20）；做题 +2 分/题，答对再 +1 分；背诵过关 +5 分/张。</div>';
+   +'<div class="hint">积分规则：签到 +10 分/天，连签第 3 天起每天额外 +2×连签天数（封顶 +20）；做题 +2 分/题，答对再 +1 分；背诵过关 +5 分/张（需🎤语音/输入实测，防刷分）。</div>';
 }
 async function doCheckin(){
   const b=document.getElementById('ck-btn'); if(b)b.disabled=true;
@@ -720,20 +770,103 @@ function renderCard(){
   if(!cList.length){area.innerHTML='<div class="hint">该范围暂无卡片（可能都已标记"已记住"，可点下方重置）。</div>';$('c-prog').textContent='';return;}
   const c=cList[cIdx];
   const known=S.cards.known.includes(cardKey(c));
+  const ver=S.cards.verified.includes(cardKey(c));
   const back=cFlip?`<div class="bk">${esc(c.back)}</div>`:'';
   area.innerHTML=`<div class="fcard" onclick="cFlipCard()">
     <span class="bt ${c.tag}">${c.tag}</span>${c.star?'<span class="st">★</span>':''}
     <div class="fr">${esc(c.front)}</div>${back}
-    <span class="unit">${dU(c.unit)}${known?' · 已会':''}</span></div>`;
+    <span class="unit">${dU(c.unit)}${known?' · 已会'+(ver?'（语音）':''):''}</span></div>`;
   const left=cList.length-S.cards.known.filter(k=>cList.some(c=>cardKey(c)===k)).length;
   $('c-prog').textContent=`第 ${cIdx+1} / ${cList.length} 张 · 本范围待巩固 ${left} 张`;
   cFlip=false;
 }
 function cFlipCard(){cFlip=!cFlip;renderCard();}
 function nextCard(){if(cIdx<cList.length-1){cIdx++;renderCard();}else{const area=$('card-area');area.innerHTML='<div class="hint">本组看完啦 ✅ 点「重置已记住」可重来，或切换科目/标签继续。</div>';$('c-prog').textContent='已完成本组';}}
-$('c-yes').onclick=()=>{const c=cList[cIdx];if(!c)return;const k=cardKey(c);if(!S.cards.known.includes(k))S.cards.known.push(k);save();nextCard();};
+$('c-yes').onclick=()=>{ // 手动“我会了”：只移出牌堆，不写云端 known → 不计分（防刷分）
+  const c=cList[cIdx];if(!c)return;const k=cardKey(c);
+  if(!S.cards.known.includes(k))S.cards.known.push(k);
+  save();nextCard();flashProg('已标记“会了”（未录音，不计分）');
+};
 $('c-no').onclick=()=>{nextCard();};
-$('c-reset').onclick=()=>{S.cards.known=[];save();loadCards();};
+$('c-reset').onclick=()=>{S.cards.known=[];S.cards.verified=[];save();loadCards();};
+$('c-recite').onclick=openRecite;
+$('rec-start').onclick=startRec;
+$('rec-stop').onclick=stopRec;
+$('rec-retry').onclick=()=>{ if(_recRunning) stopRec(); _recFinal=''; $('rec-trans').innerHTML='<span class="muted">点击「开始录音」后，这里会实时显示你说的话…</span>'; $('rec-score').classList.add('hide'); $('rec-diff').classList.add('hide'); $('rec-pass').style.display='none'; $('rec-start').disabled=false; $('rec-stop').disabled=true; };
+$('rec-cancel').onclick=closeRecite;
+$('rec-type-go').onclick=()=>{ const t=$('rec-type').value.trim(); if(!t){ alert('请先输入你背诵的内容'); return; } gradeRecite(t); };
+
+// ---------- 背诵录音→转文字→比对→评分（需真实背诵才计 +5 分） ----------
+let _recCard=null,_recSR=null,_recFinal='',_recRunning=false,_recKey='';
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function flashProg(msg){ const el=$('c-prog'); if(!el)return; el.textContent=msg; clearTimeout(el._t); el._t=setTimeout(()=>{ if(curPage==='card') renderCard(); },1700); }
+function openRecite(){
+  const c=cList[cIdx]; if(!c) return;
+  _recCard=c; _recKey=cardKey(c); _recFinal='';
+  cFlip=false; renderCard();            // 隐藏答案，凭记忆背
+  const box=$('recite-box'); box.classList.remove('hide');
+  $('rec-score').classList.add('hide'); $('rec-diff').classList.add('hide');
+  $('rec-trans').innerHTML='<span class="muted">点击「开始录音」后，这里会实时显示你说的话…</span>';
+  $('rec-start').disabled=false; $('rec-stop').disabled=true; $('rec-pass').style.display='none';
+  const fb=$('rec-fallback');
+  if(SR){ fb.classList.add('hide'); } else { fb.classList.remove('hide'); }
+  box.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function closeRecite(){ $('recite-box').classList.add('hide'); if(_recRunning) stopRec(); }
+function startRec(){
+  if(!SR){ $('rec-fallback').classList.remove('hide'); return; }
+  try{
+    _recSR=new SR(); _recSR.lang='zh-CN'; _recSR.interimResults=true; _recSR.continuous=true; _recSR.maxAlternatives=1;
+    _recFinal='';
+    _recSR.onresult=(e)=>{
+      let inter='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const t=e.results[i][0].transcript;
+        if(e.results[i].isFinal) _recFinal+=t; else inter+=t;
+      }
+      $('rec-trans').innerHTML=esc(_recFinal)+'<span class="muted">'+esc(inter)+'</span>';
+    };
+    _recSR.onerror=(e)=>{ $('rec-trans').innerHTML='<span class="muted">识别出错：'+esc(e.error||'未知')+'，可改用下方手动输入。</span>'; $('rec-fallback').classList.remove('hide'); };
+    _recSR.onend=()=>{ _recRunning=false; $('rec-start').disabled=false; $('rec-start').classList.remove('on'); $('rec-stop').disabled=true; if(_recFinal.trim()) gradeRecite(_recFinal); };
+    _recSR.start(); _recRunning=true;
+    $('rec-start').disabled=true; $('rec-start').classList.add('on'); $('rec-stop').disabled=false;
+    $('rec-trans').innerHTML='<span class="muted">正在聆听…请清晰、完整地背出整段答案</span>';
+  }catch(err){ $('rec-fallback').classList.remove('hide'); }
+}
+function stopRec(){ try{ if(_recSR) _recSR.stop(); }catch(e){} }
+async function gradeRecite(transcript){
+  const c=_recCard; if(!c) return;
+  const box=$('rec-score'); box.classList.remove('hide');
+  box.innerHTML='评分中…';
+  const localScore=textSim(transcript,c.back);
+  let pass=localScore>=0.55, score=localScore, expected=c.back, serverSide=false;
+  if(MODE==='server'){
+    try{
+      const d=await API.call('/api/recite',{key:_recKey,transcript:transcript});
+      if(d&&d.ok){ pass=d.pass; score=(d.score!=null?d.score:score); expected=d.expected||expected; serverSide=true; }
+    }catch(e){ /* 网络失败退回本地判定 */ }
+  }
+  const pct=Math.round(score*100);
+  box.innerHTML=(serverSide?'云端测评':'本地测评')+'：<b class="'+(pass?'ok':'bad')+'">'+pct+' 分</b>'+
+                (pass?'　✅ 通过，计入背诵过关 +5 分':'　还差一点，多读两遍再试');
+  renderRecDiff(transcript,expected);
+  if(pass){ $('rec-pass').style.display=''; $('rec-pass').onclick=()=>{ markRecited(_recKey); closeRecite(); }; }
+  else { $('rec-pass').style.display='none'; }
+}
+function renderRecDiff(transcript,expected){
+  const d=$('rec-diff'); d.classList.remove('hide');
+  d.innerHTML='<div class="rec-col"><div class="rec-h">你背的</div><div class="rec-txt">'+esc(transcript||'（无）')+'</div></div>'+
+              '<div class="rec-col"><div class="rec-h">标准答案</div><div class="rec-txt exp">'+esc(expected)+'</div></div>';
+}
+function markRecited(key){
+  if(!S.cards.known.includes(key)) S.cards.known.push(key);
+  if(!S.cards.verified.includes(key)) S.cards.verified.push(key);
+  save(); if(typeof renderStat==='function') renderStat(); nextCard();
+}
+// 文本相似度（与后端 server.py text_sim 保持一致）：0.75×LCS比例 + 0.25×关键短语覆盖
+function _recNorm(s){ s=(s||'').toLowerCase(); const P=' \t\n\r　!"#$%&\'()*+,-./:;<=>?@[]^_`{|}~，。、；：？！“”‘’（）《》〈〉「」『』【】…—·～'; let o=''; for(const ch of s){ if(P.indexOf(ch)>=0) continue; o+=ch; } return o; }
+function _lcsLen(a,b){ const n=a.length,m=b.length; if(!n||!m) return 0; let prev=new Array(m+1).fill(0); for(let i=0;i<n;i++){ const ai=a[i]; const cur=new Array(m+1).fill(0); for(let j=0;j<m;j++){ if(ai===b[j]) cur[j+1]=prev[j]+1; else cur[j+1]=(prev[j+1]>=cur[j]?prev[j+1]:cur[j]); } prev=cur; } return prev[m]; }
+function textSim(a,b){ a=_recNorm(a); b=_recNorm(b); if(!a||!b) return 0; const L=_lcsLen(a,b); const ratio=2*L/(a.length+b.length); const anchors=b.split(/[，。；：！？,.;:!?]+/).filter(x=>x.length>=5); let cov=0; if(anchors.length){ let hit=0; for(const x of anchors){ if(a.indexOf(x)>=0) hit++; } cov=hit/anchors.length; } return 0.75*ratio+0.25*cov; }
 document.querySelectorAll('#c-tag .chip').forEach(c=>c.onclick=()=>{selChip('#c-tag',c);cTag=c.dataset.t;loadCards();});
 $('c-unit').onchange=()=>{cUnit=$('c-unit').value;loadCards();};
 
@@ -746,10 +879,10 @@ const WX = { id: '鑫辰', name: '鑫辰（广东·佛山）' };
 // 资料内容本身也不内嵌在此文件，必须「登录 + 审核通过 + 已开通会员」后
 // 由服务端 /api/content 下发。
 let MODE = 'offline';
-const API_BASES = "https://zxdl-site.app.workbuddy.host".split('|').map(s=>s.trim()).filter(Boolean);
+const API_BASES = "".split('|').map(s=>s.trim()).filter(Boolean);
 let API_BASE_IDX = 0;
 try{ const bi=parseInt(localStorage.getItem('zb_base')||'0',10); if(bi>=0&&bi<API_BASES.length) API_BASE_IDX=bi; }catch(e){}
-const API_SHARE = "WCFFGHPYRB";
+const API_SHARE = "";
 // 云端直链（GitHub 等跨域托管版加载慢/连不上时，提示切换到这里）
 const SWITCH_URL = 'https://zxdl-site.app.workbuddy.host/?sharecode=' + (API_SHARE || 'WCFFGHPYRB');
 function isCloudHost(){ try{ return /app\.workbuddy\.host/i.test(location.host); }catch(e){ return false; } }
@@ -812,7 +945,7 @@ function mergeCloud(){
     const cd=CLOUD.done[id]||{n:0,r:0}, ld=S.quiz.done[id]||{n:0,r:0};
     S.quiz.done[id]={n:Math.max(cd.n||0,ld.n||0), r:Math.max(cd.r||0,ld.r||0)};
   });
-  CLOUD.known.forEach(id=>{ if(!S.cards.known.includes(id)) S.cards.known.push(id); });
+  CLOUD.known.forEach(id=>{ if(!S.cards.known.includes(id)) S.cards.known.push(id); if(!S.cards.verified.includes(id)) S.cards.verified.push(id); });
   save();
   if(typeof renderQuizStat==='function') renderQuizStat();
   if(typeof renderStat==='function') renderStat();
@@ -825,7 +958,7 @@ function cloudPush(){
     const items=[];
     Object.keys(S.quiz.done).forEach(id=>items.push({kind:'done',key:id,val:S.quiz.done[id]}));
     S.quiz.wrong.forEach(id=>items.push({kind:'wrong',key:id,val:1}));
-    S.cards.known.forEach(id=>items.push({kind:'known',key:id,val:1}));
+    S.cards.verified.forEach(id=>items.push({kind:'known',key:id,val:1}));
     if(!items.length) return;
     try{ await API.call('/api/rec/bulk',{items}); }catch(e){ console.warn('cloud push',e); }
   }, 1200);
