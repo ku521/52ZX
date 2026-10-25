@@ -797,6 +797,9 @@ $('rec-retry').onclick=()=>{ if(_recRunning) stopRec(); _recFinal=''; $('rec-typ
 $('rec-cancel').onclick=closeRecite;
 $('rec-type-go').onclick=()=>{ const t=$('rec-type').value.trim(); if(!t){ alert('请先输入或修改你背诵的内容'); return; } gradeRecite(t); };
 $('rec-type').addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); $('rec-type-go').click(); } });
+$('rec-type').addEventListener('input',()=>{ // 一开始修改文字就收起上一轮的标准答案对照，防止抄答案再交
+  $('rec-score').classList.add('hide'); $('rec-diff').classList.add('hide'); $('rec-pass').style.display='none';
+});
 
 // ---------- 背诵录音→转文字→比对→评分（需真实背诵才计 +5 分） ----------
 let _recCard=null,_recSR=null,_recFinal='',_recRunning=false,_recKey='';
@@ -823,6 +826,8 @@ function startRec(){
   try{
     _recSR=new SR(); _recSR.lang='zh-CN'; _recSR.interimResults=true; _recSR.continuous=true; _recSR.maxAlternatives=1;
     _recFinal=''; $('rec-type').value=''; $('rec-edit').classList.add('hide');
+    // 关键防刷：重新开录时把上一轮的评分/标准答案对照全部隐藏，杜绝照着答案读
+    $('rec-score').classList.add('hide'); $('rec-diff').classList.add('hide'); $('rec-pass').style.display='none';
     _recSR.onresult=(e)=>{
       let inter='';
       for(let i=e.resultIndex;i<e.results.length;i++){
@@ -842,6 +847,7 @@ function startRec(){
 function showRecEdit(text){
   $('rec-type').value=text||'';
   $('rec-edit').classList.remove('hide');
+  $('rec-score').classList.add('hide'); $('rec-diff').classList.add('hide'); $('rec-pass').style.display='none';
   $('rec-trans').innerHTML='<span class="muted">已停止录音'+(text&&text.trim()?'':'（没听到内容）')+'。识别可能有错，请在下方修改或补充，然后点「提交评分」。</span>';
   try{ $('rec-type').focus(); }catch(e){}
 }
