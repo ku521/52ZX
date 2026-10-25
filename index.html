@@ -165,9 +165,9 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
 .rec-diff .rec-txt.exp{color:#1a5fb4}
 .rec-actions{display:flex;gap:10px;flex-wrap:wrap}
 .rec-actions .btn{flex:1;min-width:120px}
-.rec-fallback{margin-top:10px;background:#fff7e6;border:1px solid #ffe0a3;border-radius:10px;padding:10px}
-.rec-fallback textarea{width:100%;min-height:70px;border:1px solid #d7dfea;border-radius:8px;padding:8px;font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box;margin:6px 0}
-.rec-fallback .btn{width:100%}
+.rec-edit{margin-top:10px;background:#fff7e6;border:1px solid #ffe0a3;border-radius:10px;padding:10px}
+.rec-edit textarea{width:100%;min-height:80px;border:1px solid #d7dfea;border-radius:8px;padding:8px;font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box;margin:6px 0}
+.rec-edit .btn{width:100%}
 @media(max-width:430px){
   .rec-diff{grid-template-columns:1fr}
   .rec-score{font-size:14px}
@@ -234,7 +234,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
 
 <!-- 原句过关背诵（翻卡记背） -->
 <section class="page" id="pg-card">
-  <div class="hint">原句过关背诵：点卡片翻面看答案，凭记忆「🎤 背给我听」录音转文字、与标准答案比对评分；过关才计入背诵 +5 分（防刷分）。「还没记住」留下次再刷，「我已背出(不计分)」只移出牌堆不计分。★=高频必背，赋分=大题得分句，必修=核心考点。</div>
+  <div class="hint">原句过关背诵：点卡片翻面看答案，凭记忆「🎤 背给我听」录音转文字（识别有误可修改/打字补充后再提交），与标准答案比对评分；过关才计入背诵 +5 分（防刷分）。「还没记住」留下次再刷，「我已背出(不计分)」只移出牌堆不计分。★=高频必背，赋分=大题得分句，必修=核心考点。</div>
   <div class="kfilter" id="c-subj"></div>
   <div class="grid"><select class="sel" id="c-unit" style="flex:1"><option value="">全部单元</option></select></div>
   <div class="kfilter" id="c-tag">
@@ -251,7 +251,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
     <div class="rec-trans" id="rec-trans"><span class="muted">点击「开始录音」后，这里会实时显示你说的话…</span></div>
     <div class="rec-ctrls">
       <button class="btn rec" id="rec-start">● 开始录音</button>
-      <button class="btn g" id="rec-stop" disabled>■ 停止并评分</button>
+      <button class="btn g" id="rec-stop" disabled>■ 停止录音</button>
     </div>
     <div class="rec-score hide" id="rec-score"></div>
     <div class="rec-diff hide" id="rec-diff"></div>
@@ -260,9 +260,9 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
       <button class="btn g" id="rec-pass" style="display:none">✅ 确认过关</button>
       <button class="btn ghost" id="rec-cancel">关闭</button>
     </div>
-    <div class="rec-fallback hide" id="rec-fallback">
-      <div style="font-size:12.5px;color:#8a6d00">当前环境不支持语音识别（如本地离线打开），可手动输入你背诵的内容，同样会比对评分：</div>
-      <textarea id="rec-type" placeholder="在此输入你背诵的答案…"></textarea>
+    <div class="rec-edit hide" id="rec-edit">
+      <div style="font-size:12.5px;color:#8a6d00">识别可能有错？直接在下面修改文字、打字补充，然后点「提交评分」（Ctrl+Enter 也可提交）：</div>
+      <textarea id="rec-type" placeholder="录音转写会显示在这里，也可直接手动输入你背诵的答案…"></textarea>
       <button class="btn g" id="rec-type-go">提交评分</button>
     </div>
   </div>
@@ -793,9 +793,10 @@ $('c-reset').onclick=()=>{S.cards.known=[];S.cards.verified=[];save();loadCards(
 $('c-recite').onclick=openRecite;
 $('rec-start').onclick=startRec;
 $('rec-stop').onclick=stopRec;
-$('rec-retry').onclick=()=>{ if(_recRunning) stopRec(); _recFinal=''; $('rec-trans').innerHTML='<span class="muted">点击「开始录音」后，这里会实时显示你说的话…</span>'; $('rec-score').classList.add('hide'); $('rec-diff').classList.add('hide'); $('rec-pass').style.display='none'; $('rec-start').disabled=false; $('rec-stop').disabled=true; };
+$('rec-retry').onclick=()=>{ if(_recRunning) stopRec(); _recFinal=''; $('rec-type').value=''; $('rec-edit').classList.add('hide'); $('rec-trans').innerHTML='<span class="muted">点击「开始录音」后，这里会实时显示你说的话…</span>'; $('rec-score').classList.add('hide'); $('rec-diff').classList.add('hide'); $('rec-pass').style.display='none'; $('rec-start').disabled=false; $('rec-stop').disabled=true; };
 $('rec-cancel').onclick=closeRecite;
-$('rec-type-go').onclick=()=>{ const t=$('rec-type').value.trim(); if(!t){ alert('请先输入你背诵的内容'); return; } gradeRecite(t); };
+$('rec-type-go').onclick=()=>{ const t=$('rec-type').value.trim(); if(!t){ alert('请先输入或修改你背诵的内容'); return; } gradeRecite(t); };
+$('rec-type').addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); $('rec-type-go').click(); } });
 
 // ---------- 背诵录音→转文字→比对→评分（需真实背诵才计 +5 分） ----------
 let _recCard=null,_recSR=null,_recFinal='',_recRunning=false,_recKey='';
@@ -812,16 +813,16 @@ function openRecite(){
   $('rec-score').classList.add('hide'); $('rec-diff').classList.add('hide');
   $('rec-trans').innerHTML='<span class="muted">点击「开始录音」后，这里会实时显示你说的话…</span>';
   $('rec-start').disabled=false; $('rec-stop').disabled=true; $('rec-pass').style.display='none';
-  const fb=$('rec-fallback');
-  if(SR){ fb.classList.add('hide'); } else { fb.classList.remove('hide'); }
+  $('rec-type').value='';
+  if(SR){ $('rec-edit').classList.add('hide'); } else { $('rec-edit').classList.remove('hide'); }
   box.scrollIntoView({behavior:'smooth',block:'center'});
 }
 function closeRecite(){ $('recite-box').classList.add('hide'); $('card-area').style.display=''; if(_recRunning) stopRec(); }
 function startRec(){
-  if(!SR){ $('rec-fallback').classList.remove('hide'); return; }
+  if(!SR){ $('rec-edit').classList.remove('hide'); return; }
   try{
     _recSR=new SR(); _recSR.lang='zh-CN'; _recSR.interimResults=true; _recSR.continuous=true; _recSR.maxAlternatives=1;
-    _recFinal='';
+    _recFinal=''; $('rec-type').value=''; $('rec-edit').classList.add('hide');
     _recSR.onresult=(e)=>{
       let inter='';
       for(let i=e.resultIndex;i<e.results.length;i++){
@@ -830,12 +831,19 @@ function startRec(){
       }
       $('rec-trans').innerHTML=esc(_recFinal)+'<span class="muted">'+esc(inter)+'</span>';
     };
-    _recSR.onerror=(e)=>{ $('rec-trans').innerHTML='<span class="muted">识别出错：'+esc(e.error||'未知')+'，可改用下方手动输入。</span>'; $('rec-fallback').classList.remove('hide'); };
-    _recSR.onend=()=>{ _recRunning=false; $('rec-start').disabled=false; $('rec-start').classList.remove('on'); $('rec-stop').disabled=true; if(_recFinal.trim()) gradeRecite(_recFinal); };
+    _recSR.onerror=(e)=>{ $('rec-trans').innerHTML='<span class="muted">识别出错：'+esc(e.error||'未知')+'，可在下方手动输入。</span>'; $('rec-edit').classList.remove('hide'); };
+    _recSR.onend=()=>{ _recRunning=false; $('rec-start').disabled=false; $('rec-start').classList.remove('on'); $('rec-stop').disabled=true; showRecEdit(_recFinal); };
     _recSR.start(); _recRunning=true;
     $('rec-start').disabled=true; $('rec-start').classList.add('on'); $('rec-stop').disabled=false;
     $('rec-trans').innerHTML='<span class="muted">正在聆听…请清晰、完整地背出整段答案</span>';
-  }catch(err){ $('rec-fallback').classList.remove('hide'); }
+  }catch(err){ $('rec-edit').classList.remove('hide'); }
+}
+// 录音结束：把转写填入可编辑框，让用户修正识别错误/补充后再提交评分（不再自动评分）
+function showRecEdit(text){
+  $('rec-type').value=text||'';
+  $('rec-edit').classList.remove('hide');
+  $('rec-trans').innerHTML='<span class="muted">已停止录音'+(text&&text.trim()?'':'（没听到内容）')+'。识别可能有错，请在下方修改或补充，然后点「提交评分」。</span>';
+  try{ $('rec-type').focus(); }catch(e){}
 }
 function stopRec(){ try{ if(_recSR) _recSR.stop(); }catch(e){} }
 async function gradeRecite(transcript){
