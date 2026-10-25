@@ -99,7 +99,7 @@ table.vtbl .vsum td{background:#fff8ec}
 /* 单元标签：一行两列、等宽对齐；文字过长时由 JS 自动缩字号；
    "全部单元" 通栏 */
 #q-unit{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:6px 0}
-#q-unit .chip{display:flex;align-items:center;justify-content:center;min-height:36px;padding:7px 6px;text-align:center;line-height:1.25;border-radius:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#q-unit .chip{display:flex;align-items:center;justify-content:center;min-height:36px;padding:7px 6px;text-align:center;line-height:1.3;border-radius:14px;white-space:normal;overflow:hidden}
 #q-unit .chip.all{grid-column:1 / -1;font-weight:600}
 /* 两行单元标签：第一行章名（小字），第二行节名（主文字），消除“第1节”重复歧义 */
 #q-unit .chip.u2{flex-direction:column;justify-content:center;gap:1px;white-space:normal;min-height:50px;padding:6px 8px}
@@ -416,7 +416,7 @@ function buildUnitFilter(){
     box.appendChild(c);});
   fitChips(box);
 }
-// 标签文字自适应缩字号：放不下就逐级缩小，保证一行显示、两列对齐（两行标签分别处理章/节两行）
+// 标签文字自适应缩字号：放不下就逐级缩小，优先缩小字号、截断只作最后兜底；单行/章/节下限都放到 7px
 function fitChips(box){
   if(!box||!box.clientWidth)return;
   [...box.children].forEach(c=>{
@@ -426,9 +426,9 @@ function fitChips(box){
       if(!t) return;
       const isCh=t.classList.contains('ch'), isSec=t.classList.contains('sec');
       let fs = isCh ? 10 : (isSec ? 12.5 : 13.5);
-      const lo = isCh ? 8.5 : 9.5;
+      const lo = 7; // 统一下限 7px：宁可字小也不截断
       t.style.fontSize=fs+'px';let guard=0;
-      while(t.scrollWidth>t.clientWidth+1&&fs>lo&&guard++<30){fs-=0.5;t.style.fontSize=fs+'px';}
+      while(t.scrollWidth>t.clientWidth+1&&fs>lo&&guard++<60){fs-=0.5;t.style.fontSize=fs+'px';}
     });
   });
 }
