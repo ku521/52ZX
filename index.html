@@ -9,13 +9,18 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
 font-size:16px;line-height:1.6;max-width:900px;margin:0 auto;padding-bottom:60px}
+/* 大屏自适应：放大主内容宽度，避免两侧大片留白 */
+@media(min-width:1000px){body{max-width:1100px}}
+@media(min-width:1400px){body{max-width:1320px}}
+@media(min-width:1700px){body{max-width:1560px}}
 header{background:linear-gradient(120deg,#3b6fe0,#5b8def);color:#fff;padding:14px 16px;position:sticky;top:0;z-index:30}
 header .hrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
 header .hmain{min-width:0;flex:1}
-header h1{margin:0;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header h1{margin:0;font-size:18px;line-height:1.25;display:flex;align-items:baseline;flex-wrap:wrap}
+header h1 .sub-t{font-size:12.5px;font-weight:400;opacity:.72;margin-left:6px;color:#eaf0ff;white-space:nowrap}
 header .s{font-size:11.5px;opacity:.92;margin-top:2px}
 header .hacts{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;flex:0 0 auto}
-@media (max-width:430px){header h1{font-size:17px}header .s{font-size:11px}header .hacts{gap:6px}}
+@media (max-width:430px){header h1{font-size:15px}header h1 .sub-t{font-size:11px}header .s{font-size:11px}header .hacts{gap:6px}}
 .nav{display:flex;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:58px;z-index:20;overflow-x:auto}
 .nav button{flex:1;min-width:80px;padding:11px 4px;border:none;background:#fff;font-size:15px;color:var(--sub);border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
 .nav button.on{color:var(--acc);border-bottom-color:var(--acc);font-weight:700}
@@ -106,11 +111,13 @@ table.vtbl .vsum td{background:#fff8ec}
 #q-unit .chip.u2 .ch{font-size:10px;line-height:1.1;color:#8b97a8;font-style:normal;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #q-unit .chip.u2 .sec{font-size:12.5px;font-weight:600;line-height:1.25;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #q-unit .chip.u2.on .ch{color:rgba(255,255,255,.85)}
-.mem-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.mem-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:12px 0}
 .mem{background:#f0f7ff;border:1px solid #cfe3ff;border-radius:8px;padding:9px 11px;font-size:13px}.mem b{color:#1a5fb4}
 .phase{border-radius:10px;padding:12px 14px;margin:14px 0}
 .phase-now{background:#eafaf0;border:1px solid #b8e6c8}.phase-later{background:#fff4ec;border:1px solid #f3d3b5}
 .phase h3{margin:0 0 8px}
+/* 学习路线：大屏两列并排，消除纵向大片留白 */
+@media(min-width:1000px){ #roadmap{display:grid;grid-template-columns:1fr 1fr;gap:14px} #roadmap .phase{margin:0} }
 .essay{background:#fff;border:1px solid var(--line);border-radius:13px;padding:14px;margin:10px 0}
 .essay .pt{display:none;background:#fff8e1;border:1px solid #ffe0a3;border-radius:8px;padding:10px;margin-top:8px;white-space:pre-wrap;font-size:14px}
 .essay .pt.on{display:block}
@@ -174,7 +181,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
 }
 </style></head>
 <body>
-<header><div class="hrow"><div class="hmain"><h1>政史地生学习站</h1><div class="s">政治/历史/地理/生物 · 资料/导图/知识点/路线 · 题库(单元练·模拟考·大题) · 免费使用</div></div><div class="hacts"><span class="u" id="lineLabel" onclick="switchLine(1)" style="cursor:pointer"></span><span class="u" id="hdrUser"></span></div></div></header>
+<header><div class="hrow"><div class="hmain"><h1>高一·文综（政史地生）加油站<span class="sub-t">——52ZX(吾爱自学)</span></h1><div class="s">历史/地理/政治/生物 · 资料/导图/知识点/路线 · 题库(单元练·模拟考·大题) · 免费使用</div></div><div class="hacts"><span class="u" id="lineLabel" onclick="switchLine(1)" style="cursor:pointer"></span><span class="u" id="hdrUser"></span></div></div></header>
 
 <div class="nav" id="nav"></div>
 <div class="vol" id="vol"></div>
@@ -182,7 +189,7 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
 <!-- 首页 -->
 <section class="page" id="pg-home">
   <div class="card"><h3>系统总览</h3>
-    <p class="muted">政治/历史/地理/生物 四科同步导航，每册含：①学习资料 ②思维导图 ③赋分原句 ④总结知识点 ⑤学习路线(记忆法)。题库支持单元练、随机强记、错题本、模拟考、大题练手，进度与得分率自动保存。</p>
+    <p class="muted">历史/地理/政治/生物 四科同步导航，每册含：①学习资料 ②思维导图 ③赋分原句 ④总结知识点 ⑤学习路线(记忆法)。题库支持单元练、随机强记、错题本、模拟考、大题练手，进度与得分率自动保存。</p>
   </div>
   <div class="card"><h3>学期路线图</h3><div id="roadmap"></div></div>
   <div class="card"><h3>怎么提升记忆效率</h3><div id="memory"></div></div>
@@ -302,8 +309,8 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
 
 <!-- 登录 / 注册 遮罩 -->
 <div class="overlay" id="loginOverlay">
-  <h2>政史地生学习站</h2>
-  <div class="sub">免费注册，登录即可使用全部资料与题库</div>
+  <h2>高一·文综（政史地生）加油站</h2>
+  <div class="sub">52ZX·吾爱自学 · 免费注册，登录即可使用全部资料与题库</div>
   <div class="ov-box">
     <div id="li-form">
       <input id="li-user" placeholder="用户名（建议用手机号/微信名）" autocomplete="username">
@@ -389,7 +396,7 @@ S.quiz=S.quiz||{};S.quiz.done=S.quiz.done||{};S.quiz.wrong=S.quiz.wrong||[];S.qu
 S.cards=S.cards||{};S.cards.known=S.cards.known||[];S.cards.verified=S.cards.verified||[];
 function save(){localStorage.setItem('zb_site',JSON.stringify(S)); if(MODE==='server') cloudPush();}
 function $(id){return document.getElementById(id);}
-const SUBJ=['政治','历史','地理','生物'];
+const SUBJ=['历史','地理','政治','生物'];
 const VOL_DEF={'政治':'同步·必修1','历史':'同步·纲要上','地理':'同步·必修一','生物':'同步·分子与细胞'};
 let curSubj='政治',curVol=VOL_DEF['政治'],resTab='summary',quizTab='choice';
 function volRefresh(){if(curPage==='res')renderRes();if(curPage==='quiz'&&quizTab==='choice')buildSubjFilter();if(curPage==='quiz'&&quizTab==='essay')renderEssays();}
@@ -900,18 +907,18 @@ const WX = { id: '鑫辰', name: '鑫辰（广东·佛山）' };
 // 资料内容本身也不内嵌在此文件，必须「登录 + 审核通过 + 已开通会员」后
 // 由服务端 /api/content 下发。
 let MODE = 'offline';
-const API_BASES = "".split('|').map(s=>s.trim()).filter(Boolean);
+const API_BASES = "https://zxdl-site.app.workbuddy.host".split('|').map(s=>s.trim()).filter(Boolean);
 let API_BASE_IDX = 0;
 try{ const bi=parseInt(localStorage.getItem('zb_base')||'0',10); if(bi>=0&&bi<API_BASES.length) API_BASE_IDX=bi; }catch(e){}
-const API_SHARE = "";
+const API_SHARE = "WCFFGHPYRB";
 // 云端直链（GitHub 等跨域托管版加载慢/连不上时，提示切换到这里）
 const SWITCH_URL = 'https://zxdl-site.app.workbuddy.host/?sharecode=' + (API_SHARE || 'WCFFGHPYRB');
 function isCloudHost(){ try{ return /app\.workbuddy\.host/i.test(location.host); }catch(e){ return false; } }
 function showSlowTip(msg){ const t=document.getElementById('slowTip'); if(!t) return; if(msg) t.querySelector('.st-txt').innerHTML=msg; const b=document.getElementById('slowSwitch'); if(b) b.href=SWITCH_URL; t.classList.remove('hide'); }
 function hideSlowTip(){ const t=document.getElementById('slowTip'); if(t) t.classList.add('hide'); }
-let _slowTimer=null, _backendBusy=false;
-function startSlowWatch(){ _backendBusy=true; clearTimeout(_slowTimer); _slowTimer=setTimeout(()=>{ if(_backendBusy && MODE==='server' && !isCloudHost()) showSlowTip('当前访问较慢，可改用 <b>云端直链</b> 获得更快体验：'); }, 5000); }
-function stopSlowWatch(){ _backendBusy=false; clearTimeout(_slowTimer); hideSlowTip(); }
+let _slowTimer=null, _backendBusy=false, _redirectTimer=null;
+function startSlowWatch(){ _backendBusy=true; clearTimeout(_slowTimer); clearTimeout(_redirectTimer); _slowTimer=setTimeout(()=>{ if(_backendBusy && MODE==='server' && !isCloudHost()){ showSlowTip('当前访问较慢，即将自动切换到 <b>云端直链</b>…'); _redirectTimer=setTimeout(()=>{ if(_backendBusy && MODE==='server' && !isCloudHost()){ try{window.location.replace(SWITCH_URL);}catch(e){} } }, 3500); } }, 5000); }
+function stopSlowWatch(){ _backendBusy=false; clearTimeout(_slowTimer); clearTimeout(_redirectTimer); hideSlowTip(); }
 const API = {
   async call(path, body){
     const bases = API_BASES.length ? API_BASES : [''];
@@ -1022,7 +1029,7 @@ async function boot(){
   updateLineLabel();
 
   if(MODE==='offline'){
-    if(!DATA){ overlay('loginOverlay',true); if(!isCloudHost()){ showSlowTip('无法连接服务端，建议改用 <b>云端直链</b>：'); } else { showDone('此文件是<b>学生版</b>，需配合服务端使用。<br>个人自用请打开“离线个人版”。'); } return; }
+    if(!DATA){ overlay('loginOverlay',true); if(!isCloudHost()){ showSlowTip('无法连接服务端，正在为你切换到 <b>云端直链</b>…'); setTimeout(()=>{ try{window.location.replace(SWITCH_URL);}catch(e){} }, 2500); } else { showDone('此文件是<b>学生版</b>，需配合服务端使用。<br>个人自用请打开“离线个人版”。'); } return; }
     CUR_USER='本地'; enterApp(); return;
   }
 
