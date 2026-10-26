@@ -907,12 +907,12 @@ const WX = { id: '鑫辰', name: '鑫辰（广东·佛山）' };
 // 资料内容本身也不内嵌在此文件，必须「登录 + 审核通过 + 已开通会员」后
 // 由服务端 /api/content 下发。
 let MODE = 'offline';
-const API_BASES = "https://zxdl-site.app.workbuddy.host".split('|').map(s=>s.trim()).filter(Boolean);
+const API_BASES = "https://52zx.app.workbuddy.host".split('|').map(s=>s.trim()).filter(Boolean);
 let API_BASE_IDX = 0;
 try{ const bi=parseInt(localStorage.getItem('zb_base')||'0',10); if(bi>=0&&bi<API_BASES.length) API_BASE_IDX=bi; }catch(e){}
-const API_SHARE = "WCFFGHPYRB";
+const API_SHARE = "E2G3MZIBK2";
 // 云端直链（GitHub 等跨域托管版加载慢/连不上时，提示切换到这里）
-const SWITCH_URL = 'https://zxdl-site.app.workbuddy.host/?sharecode=' + (API_SHARE || 'WCFFGHPYRB');
+const SWITCH_URL = 'https://52zx.app.workbuddy.host/?sharecode=' + (API_SHARE || 'E2G3MZIBK2');
 function isCloudHost(){ try{ return /app\.workbuddy\.host/i.test(location.host); }catch(e){ return false; } }
 function showSlowTip(msg){ const t=document.getElementById('slowTip'); if(!t) return; if(msg) t.querySelector('.st-txt').innerHTML=msg; const b=document.getElementById('slowSwitch'); if(b) b.href=SWITCH_URL; t.classList.remove('hide'); }
 function hideSlowTip(){ const t=document.getElementById('slowTip'); if(t) t.classList.add('hide'); }
