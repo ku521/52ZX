@@ -8,10 +8,11 @@
     不可用则读同目录 content.json 进离线浏览（托底），资料浏览与做题照常可用。
 
 用法：
-    python build_ghpages.py            # 生成 gh-pages/ 目录
-    python build_ghpages.py --push     # 生成后提交并推送到 gh-pages 分支
+    python build_ghpages.py              # 只生成 gh-pages/ 目录
+    python build_ghpages.py --publish    # 生成 + 通过 Git Data API 发布到 gh-pages 分支 + 触发 Pages 重建
+    python build_ghpages.py --push       # 生成 + git push 推送（网络不稳定时改用 --publish）
 """
-import json, os, shutil, subprocess, sys, argparse, gzip
+import json, os, shutil, subprocess, sys, argparse, gzip, time
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 SITE = os.path.join(BASE, "site")
@@ -67,7 +68,8 @@ def build_index(src, dst):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--push", action="store_true", help="构建后提交并推送到 gh-pages 分支")
+    ap.add_argument("--push", action="store_true", help="构建后用 git push 推送 gh-pages 分支")
+    ap.add_argument("--publish", action="store_true", help="构建后用 Git Data API 发布 gh-pages 并触发 Pages 重建")
     a = ap.parse_args()
 
     if os.path.isdir(OUT):
@@ -129,30 +131,107 @@ def main():
     print("  站点总大小   : %.2f MB" % (total / 1048576))
     print("  安全校验     : 通过（无 answer/expl/points，无付费下载包）")
 
-    if a.push:
-        print("\n提交并推送到 gh-pages 分支…")
-        cmds = [
-            ["git", "-C", BASE, "checkout", "-B", GH_PAGES_BRANCH],
-            ["git", "-C", BASE, "add", "-f", "gh-pages"],
-            ["git", "-C", BASE, "commit", "-q", "-m",
-             "build: GitHub Pages 静态站（免费版内容：题干/卡片/导图，无答案解析与付费下载包）\n\n"
-             "- 云端可用时 1.6s 自动跳转云端（速度优先），可选择留在本页\n"
-             "- 云端不可用时读同目录 content.json 进离线浏览，作为托底\n"
-             "- 内容已剥离 answer/expl/points，付费资产不外泄"],
-            ["git", "-C", BASE, "push", "-f", "origin", GH_PAGES_BRANCH],
-            ["git", "-C", BASE, "checkout", "main"],
-        ]
-        for c in cmds:
-            r = subprocess.run(c, capture_output=True, text=True)
-            if r.returncode != 0:
-                print("  ✗", " ".join(c[3:]), "→", (r.stderr or r.stdout).strip()[:200])
-                if "checkout" in c[1] and "gh-pages" in c:
-                    subprocess.run(["git", "-C", BASE, "checkout", "main"], capture_output=True)
-                raise SystemExit(1)
-            out = (r.stdout or r.stderr).strip()
-            if out:
-                print("  ·", out.splitlines()[0][:120])
-        print("  ✓ 已推送 gh-pages 分支")
+    if a.push or a.publish:
+        if a.publish:
+            publish_via_api(OUT)
+        else:
+            print("\n提交并推送到 gh-pages 分支…")
+            cmds = [
+                ["git", "-C", BASE, "checkout", "-B", GH_PAGES_BRANCH],
+                ["git", "-C", BASE, "add", "-f", "gh-pages"],
+                ["git", "-C", BASE, "commit", "-q", "-m",
+                 "build: GitHub Pages 静态站（免费版内容：题干/卡片/导图，无答案解析与付费下载包）\n\n"
+                 "- 云端可用时 1.6s 自动跳转云端（速度优先），可选择留在本页\n"
+                 "- 云端不可用时读同目录 content.json 进离线浏览，作为托底\n"
+                 "- 内容已剥离 answer/expl/points，付费资产不外泄"],
+                ["git", "-C", BASE, "push", "-f", "origin", GH_PAGES_BRANCH],
+                ["git", "-C", BASE, "checkout", "main"],
+            ]
+            for c in cmds:
+                r = subprocess.run(c, capture_output=True, text=True)
+                if r.returncode != 0:
+                    print("  ✗", " ".join(c[3:]), "→", (r.stderr or r.stdout).strip()[:200])
+                    if "checkout" in c[1] and "gh-pages" in c:
+                        subprocess.run(["git", "-C", BASE, "checkout", "main"], capture_output=True)
+                    raise SystemExit(1)
+                out = (r.stdout or r.stderr).strip()
+                if out:
+                    print("  ·", out.splitlines()[0][:120])
+            print("  ✓ 已推送 gh-pages 分支")
+
+
+def publish_via_api(outdir):
+    """用 Git Data API 发布 gh-pages 分支（比 git push 稳：逐个小请求，避开大包连接问题）。
+    同时触发 Pages 重建。"""
+    import base64
+    REPO = "repos/ku521/52ZX"
+
+    def api(path, method="GET", data=None):
+        p = path.lstrip("/")
+        if not p.startswith("repos/"):
+            p = REPO + "/" + p
+        cmd = ["gh", "api", p, "-X", method]
+        if data is not None:
+            cmd += ["--input", "-"]
+        r = subprocess.run(cmd, input=(json.dumps(data) if data is not None else None),
+                           capture_output=True, text=True, encoding="utf-8")
+        if r.returncode != 0:
+            raise SystemExit("API 失败 %s %s → %s" % (method, p, (r.stderr or r.stdout)[:300]))
+        out = r.stdout
+        return json.loads(out) if out.strip() else {}
+
+    print("\n通过 Git Data API 发布 gh-pages 分支…")
+    files = []
+    for root, _, fs in os.walk(outdir):
+        for f in fs:
+            p = os.path.join(root, f)
+            files.append((os.path.relpath(p, outdir).replace("\\", "/"), p))
+    files.sort()
+    entries = []
+    for rel, p in files:
+        b = open(p, "rb").read()
+        blob = api("git/blobs", "POST", {"content": base64.b64encode(b).decode(), "encoding": "base64"})
+        entries.append({"path": rel, "mode": "100644", "type": "blob", "sha": blob["sha"]})
+    entries.append({"path": ".nojekyll", "mode": "100644", "type": "blob",
+                     "sha": api("git/blobs", "POST",
+                                {"content": base64.b64encode(b"probe").decode(),
+                                 "encoding": "base64"})["sha"]})
+    print("  上传 blob %d 个" % len(entries))
+    tree = api("git/trees", "POST", {"base_tree": None, "tree": entries})
+    main_sha = api("git/ref/heads/main")["object"]["sha"]
+    commit = api("git/commits", "POST", {
+        "message": "build: GitHub Pages 静态站（免费版内容）\n\n"
+                   "- 云端可用时 1.6s 自动跳转云端（速度优先），可选择留在本页\n"
+                   "- 云端不可用时读同目录 content.json 进离线浏览，作为托底\n"
+                   "- ?gh=offline 可强制离线版\n"
+                   "- 内容已剥离 answer/expl/points，付费下载包不随站发布",
+        "tree": tree["sha"], "parents": [main_sha]})
+    print("  commit %s" % commit["sha"][:10])
+    try:
+        api("git/refs", "POST", {"ref": "refs/heads/gh-pages", "sha": commit["sha"]})
+        print("  分支 gh-pages 已创建")
+    except SystemExit as e:
+        if "already exists" in str(e):
+            api("git/refs/heads/gh-pages", "PATCH", {"sha": commit["sha"], "force": True})
+            print("  分支 gh-pages 已更新(force)")
+        else:
+            raise
+    # 切 Pages 源 + 触发重建（切源不会自动重建，必须显式触发）
+    try:
+        api("pages", "PUT", {"source": {"branch": GH_PAGES_BRANCH, "path": "/"}})
+        print("  Pages 源已切到 gh-pages")
+    except SystemExit:
+        print("  (Pages 源设置跳过，可能已是 gh-pages)")
+    api("pages/builds", "POST", {})
+    print("  已触发 Pages 重建，等待完成…")
+    for i in range(24):
+        time.sleep(10)
+        b = api("pages/builds/latest")
+        st, cm = b.get("status"), (b.get("commit") or "")[:8]
+        print("    [%3ds] %s %s" % ((i + 1) * 10, st, cm))
+        if st == "built":
+            break
+    print("  ✓ gh-pages 已发布并构建完成")
 
 
 if __name__ == "__main__":
