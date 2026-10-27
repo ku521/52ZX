@@ -174,12 +174,17 @@ def content_gzip_blob(free=False):
             cache.update({"mtime": st.st_mtime, "size": len(blob), "blob": blob})
             return blob
     # 会员版：优先读预生成的 .gz（已是压缩态，勿重复压缩），没有或过期则实时压缩一次并回写
+    # 双重校验：mtime + 内容指纹。部署时若文件 mtime 失真（例如 .gz 比源文件旧），
+    # 单靠 mtime 会把「旧版资料」的 .gz 当成有效缓存发给用户，故再加一道指纹比对。
     key = CONTENT_PATH + ".gz"
     blob = None
     try:
         if os.path.isfile(key) and os.path.getmtime(key) >= st.st_mtime:
             with open(key, "rb") as f:
-                blob = f.read()
+                cand = f.read()
+            # 解压后与源文件逐字节比对，确认不是陈旧缓存（3.2MB，耗时约 10ms）
+            if _gz_matches_source(cand):
+                blob = cand
     except OSError:
         blob = None
     if blob is None:
@@ -195,6 +200,18 @@ def content_gzip_blob(free=False):
             return None
     cache.update({"mtime": st.st_mtime, "size": len(blob), "blob": blob})
     return blob
+
+
+def _gz_matches_source(cand):
+    """校验预生成的 .gz 是否与当前 content.json 内容一致（防陈旧缓存）。"""
+    try:
+        if not cand or cand[:2] != b"\x1f\x8b":
+            return False
+        with open(CONTENT_PATH, "rb") as f:
+            src = f.read()
+        return gzip.decompress(cand) == src
+    except Exception:
+        return False
 
 # 题目 id → 学科/册/单元 映射（仪表盘聚合用；从 content.json 惰性加载并缓存）
 _QMAP = {"loaded": False, "map": {}}
@@ -279,6 +296,49 @@ TURSO_TOKEN = CONF.get("turso_token") or ""
 ADMIN_KEY = CONF.get("admin_key") or ""
 ADMIN_USER = CONF.get("admin_user") or "ku521"
 SECRET = (CONF.get("secret") or "").encode("utf-8")
+
+
+def _quote_ident(name):
+    """把标识符（表名/列名）安全地转成 SQL 字面量，避免拼接注入。"""
+    return '"' + str(name).replace('"', '""') + '"'
+
+
+def _safe_ident(name):
+    """标识符白名单：只允许字母/数字/下划线且不以数字开头。"""
+    s = str(name or "")
+    return bool(s) and len(s) <= 64 and (s[0].isalpha() or s[0] == "_") and all(
+        c.isalnum() or c == "_" for c in s)
+
+
+# 后台数据浏览时需要遮蔽的凭据类字段（密码哈希 / 盐 / 口令）
+_SECRET_COLS = ("pwd", "salt", "pw", "pass", "password", "token", "secret", "adminpw")
+
+# 只读 SQL 白名单的补充：写操作关键字（词边界匹配，created_at 等普通列名不受影响）
+_SQL_WRITE_RE = re.compile(
+    r"\b(insert|update|delete|drop|alter|create|replace|truncate|attach|detach|vacuum|pragma|reindex)\b",
+    re.I)
+
+
+def _mask_secrets(rows):
+    """对凭据类字段做脱敏，防止后台截图/转发时泄露密码哈希与盐。"""
+    out = []
+    for r in rows:
+        d = {}
+        for k, v in r.items():
+            kl = str(k).lower()
+            if kl in _SECRET_COLS and v not in (None, ""):
+                s = str(v)
+                d[k] = (s[:6] + "…（已脱敏）") if len(s) > 6 else "…（已脱敏）"
+            elif isinstance(v, str) and ("adminpw" in v.lower() or '"pw"' in v.lower()):
+                # JSON 字符串里内嵌的口令字段（小游戏 kv 表等）
+                v2 = re.sub(r'("(?:adminPw|pw|password)"\s*:\s*")[^"]*(")',
+                             r'\1…\2', v, flags=re.I)
+                d[k] = v2
+            else:
+                d[k] = v
+        out.append(d)
+    return out
+
 PRICE = str(CONF.get("price") or "9.9")
 WX_NAME = CONF.get("wx_name") or ""
 WX_AREA = CONF.get("wx_area") or ""
@@ -913,7 +973,10 @@ def content_too_many(u: str) -> bool:
     with _LOCK:
         arr = [t for t in _CONTENT_HITS.get(u, []) if now - t < 3600]
         _CONTENT_HITS[u] = arr
-        return len(arr) >= 20               # 单账号每小时最多 20 次内容拉取
+        # 单账号每小时最多 60 次内容拉取。
+        # 原为 20 次，但前端每次页面加载都会拉一次资料；叠加失败重试后，
+        # 20 次配额会在几分钟内被耗尽，导致后续正常访问也返回 429 —— 自锁死。
+        return len(arr) >= 60
 
 
 def content_mark(u: str):
@@ -1570,6 +1633,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_admin_users()
             if path == "/api/admin/key":
                 return self.api_admin_key()
+            if path == "/api/admin/tables":
+                return self.api_admin_tables()
+            if path == "/api/admin/rows":
+                return self.api_admin_rows()
+            if path == "/admin/tables":
+                return self.serve_admin_tables()
             if path == "/favicon.ico":
                 # 有 favicon-32.png 时直接返回，否则沿用旧的空响应
                 _fp = os.path.join(SITE_DIR, "favicon-32.png")
@@ -1638,6 +1707,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.j(200, {"ok": True}, {"Set-Cookie": "zb_adm=; " + self._cookie_attrs(0)})
             if path == "/api/admin/act":
                 return self.api_admin_act()
+            if path == "/api/admin/sql":
+                return self.api_admin_sql()
             if path == "/api/rec":
                 return self.api_rec_set()
             if path == "/api/rec/bulk":
@@ -3377,6 +3448,99 @@ class Handler(BaseHTTPRequestHandler):
         return self.j(200, {"ok": True, "key": new_key,
                             "msg": "已生成新密码，请记好；当前后台会话已失效，请重新登录。"},
                        {"Set-Cookie": "zb_adm=; " + self._cookie_attrs(0, admin=True)})
+
+    # ---------- 后台：云库数据表浏览（只读） ----------
+    # 目的：管理员在手机上也能直接查看 Turso 里的用户数据表，
+    # 不必再登 Turso 控制台（库挂在别的 group 里，控制台里常常找不到）。
+    # 安全：三个接口全部要求后台会话（_need_admin），且 SQL 只读。
+
+    def api_admin_tables(self):
+        """列出云库所有表 + 行数 + 字段结构。批量查询，避免逐表往返（Turso 单次往返约 1s）。"""
+        if not self._need_admin():
+            return
+        names = turso("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+        tabs = [r.get("name") for r in names if r.get("name")]
+        if not tabs:
+            return self.j(200, {"ok": True, "tables": []})
+        stmts = []
+        for t in tabs:
+            stmts.append(("SELECT COUNT(*) AS c FROM " + _quote_ident(t), None))
+            stmts.append(("PRAGMA table_info(" + _quote_ident(t) + ")", None))
+        res = turso_multi(stmts)
+        out = []
+        for i, t in enumerate(tabs):
+            cnt_res = res[i * 2] if i * 2 < len(res) else []
+            col_res = res[i * 2 + 1] if i * 2 + 1 < len(res) else []
+            try:
+                cnt = int((cnt_res[0] if cnt_res else {}).get("c") or 0)
+            except (TypeError, ValueError):
+                cnt = 0
+            cols = []
+            for c in col_res:
+                cn = c.get("name")
+                if cn:
+                    cols.append({"name": cn, "type": c.get("type") or "", "pk": int(c.get("pk") or 0)})
+            out.append({"table": t, "rows": cnt, "cols": cols})
+        return self.j(200, {"ok": True, "tables": out})
+
+    def api_admin_rows(self):
+        """分页浏览某张表的数据。表名走白名单校验（只允许字母/数字/下划线）。"""
+        if not self._need_admin():
+            return
+        qs = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+        t = (qs.get("table") or [""])[0]
+        if not _safe_ident(t):
+            return self.j(400, {"msg": "表名不合法"})
+        try:
+            lim = min(200, max(1, int((qs.get("limit") or ["50"])[0])))
+            off = max(0, int((qs.get("offset") or ["0"])[0]))
+        except (TypeError, ValueError):
+            lim, off = 50, 0
+        q = _quote_ident(t)
+        cnt_res, data = turso_multi([
+            ("SELECT COUNT(*) AS c FROM " + q, None),
+            ("SELECT * FROM " + q + " LIMIT ? OFFSET ?", [(lim, "int"), (off, "int")]),
+        ])
+        try:
+            total = int((cnt_res[0] if cnt_res else {}).get("c") or 0)
+        except (TypeError, ValueError):
+            total = 0
+        return self.j(200, {"ok": True, "table": t, "total": total, "limit": lim, "offset": off,
+                            "rows": _mask_secrets(data)})
+
+    def api_admin_sql(self):
+        """只读 SQL 查询：仅允许 SELECT / WITH，禁止任何写操作与多语句。"""
+        if not self._need_admin():
+            return
+        d = self.body_json()
+        sql = (d.get("sql") or "").strip()
+        if not sql:
+            return self.j(400, {"msg": "SQL 不能为空"})
+        low = sql.lower()
+        if not (low.startswith("select") or low.startswith("with")):
+            return self.j(400, {"msg": "只允许 SELECT / WITH 查询"})
+        # WITH 后面可以跟 INSERT/UPDATE/DELETE，这里再兜一层关键字黑名单。
+        # 用词边界匹配，避免 created_at / updated_at / deleted 等普通列名被误伤。
+        m = _SQL_WRITE_RE.search(sql)
+        if m:
+            return self.j(400, {"msg": "检测到写操作关键字「%s」，此处仅允许只读查询" % m.group(1)})
+        if ";" in sql.rstrip().rstrip(";"):
+            return self.j(400, {"msg": "不支持多语句执行"})
+        try:
+            rows = turso(sql)
+        except Exception as e:
+            return self.j(400, {"msg": "查询失败：%s" % e})
+        return self.j(200, {"ok": True, "rows": _mask_secrets(rows[:500]), "truncated": len(rows) > 500})
+
+    def serve_admin_tables(self):
+        """后台数据表浏览页（静态文件）。鉴权在接口层，页面本身可匿名打开。"""
+        fp = os.path.join(SITE_DIR, "admin-tables.html")
+        if not os.path.isfile(fp):
+            return self.j(404, {"msg": "页面不存在"})
+        with open(fp, "rb") as f:
+            body = f.read()
+        return self._send(200, body, "text/html; charset=utf-8",
+                          {"Cache-Control": "no-store"})
 
     def api_admin_users(self):
         if not self._need_admin():
