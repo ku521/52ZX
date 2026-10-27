@@ -37,3 +37,6 @@ __pycache__/
 .workbuddy/
 .wbapp_*.genie
 site/pwa-preview/
+
+# GitHub Pages 静态构建产物（由 build_ghpages.py 生成，发布到 gh-pages 分支）
+gh-pages/

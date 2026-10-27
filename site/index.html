@@ -138,7 +138,7 @@ table.vtbl .vsum td{background:#fff8ec}
 .rank-col{flex:1;min-width:0}
 .rank-col-h{font-size:13px;font-weight:700;color:var(--sub);margin-bottom:6px;padding-bottom:4px;border-bottom:1px dashed var(--line)}
 .rank-list{display:flex;flex-direction:column;gap:6px}
-.rk2{display:flex;align-items:center;gap:8px;background:#fafbff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.rk2{display:flex;align-items:center;gap:8px;background:#fafbff;border:1px solid var(--line);border-radius:10px;padding:8px 10px;flex-wrap:wrap}
 .rk2.me{border-color:#1565c0;background:#eef4ff}
 .rk2 .no{width:24px;text-align:center;font-weight:800;color:var(--sub);flex:0 0 auto}
 .rk2 .nm{flex:1;min-width:0;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -147,6 +147,19 @@ table.vtbl .vsum td{background:#fff8ec}
 .rk2 .zj b{color:#1565c0;font-weight:800}
 .rk2 .acts{display:flex;gap:4px;flex:0 0 auto}
 .rk2 .acts .btn.sm{margin:0;padding:5px 9px;font-size:12px}
+/* 有未读消息的好友：整行高亮 + 未读数徽标 + 最后消息摘要（让用户一眼看出谁发的） */
+.rk2.unread-row{background:#fff4f4;border-color:#ffcdd2;box-shadow:inset 3px 0 0 #e53935}
+.rk2.unread-row .nm{color:#b71c1c}
+.unread-n{display:inline-block;background:#e53935;color:#fff;font-size:10.5px;font-style:normal;
+  font-weight:800;min-width:17px;height:17px;line-height:17px;text-align:center;border-radius:99px;padding:0 5px;
+  vertical-align:1px;margin-left:2px}
+.lk-last{flex:0 0 100%;order:9;font-size:11.5px;color:#8a5a5a;background:#fff;margin-top:4px;
+  border:1px solid #ffe0e0;border-radius:8px;padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lk-ts{color:#a98a8a;margin-left:4px}
+body.dark .rk2.unread-row{background:#3a2029;border-color:#6b3240;box-shadow:inset 3px 0 0 #ff6b6b}
+body.dark .rk2.unread-row .nm{color:#ffb3b3}
+body.dark .lk-last{background:#2a1a22;border-color:#4a2a36;color:#d9a5a5}
+body.dark .lk-ts{color:#a98888}
 .req-card{background:#fff8e6;border:1px solid #ffd591;border-radius:10px;padding:8px 10px;margin:6px 0;display:flex;align-items:center;gap:8px}
 .req-card .nm{flex:1;font-size:13px;font-weight:600}
 .req-card .acts{display:flex;gap:4px}
@@ -419,6 +432,8 @@ linear-gradient(155deg,#0a1330 0%,#111f47 48%,#0a1128 100%)}
 .slow-tip{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:10px;max-width:92vw;background:#fffbe6;border:1px solid #ffe08a;border-radius:12px;padding:9px 12px;box-shadow:0 8px 24px rgba(0,0,0,.16);font-size:13px;color:#6b5300}
 .slow-tip.hide{display:none !important}
 .slow-tip .st-btn{background:#1565c0;color:#fff;border-radius:8px;padding:6px 12px;text-decoration:none;white-space:nowrap;font-weight:600}
+.slow-tip .st-btn.hide{display:none !important}
+.slow-tip button.st-reload{border:none;cursor:pointer;font-family:inherit}
 .slow-tip .st-x{background:none;border:none;font-size:20px;line-height:1;color:#9a7b00;cursor:pointer;padding:0 2px}
 .wm{position:fixed;inset:0;pointer-events:none;z-index:60;opacity:.05;font-size:13px;line-height:2;color:#000;transform:rotate(-18deg);overflow:hidden;font-family:sans-serif;white-space:pre}
 .hint.pay{background:#eafaf0;border-color:#b8e6c8;color:#1c6b32}
@@ -1080,6 +1095,7 @@ body.dark .ps-sub{color:#a9b7cd}
   <span style="font-size:18px">🐢</span>
   <span class="st-txt">当前访问较慢，可改用 <b>云端直链</b> 获得更快体验：</span>
   <a class="st-btn" id="slowSwitch" href="#" target="_blank" rel="noopener">点此打开云端版 →</a>
+  <button class="st-btn st-reload hide" id="slowReload" type="button">重新加载资料</button>
   <button class="st-x" id="slowClose" title="关闭">×</button>
 </div>
 
@@ -1379,7 +1395,7 @@ function switchPage(p){
   // 年级/科目/册 三级导航只在「学习类」页面显示；首页/排行/进度/会员不需要
   const learning=(p==='res'||p==='quiz'||p==='card');
   const nw=document.getElementById('navwrap');if(nw)nw.style.display=learning?'':'none';
-  if(p==='res')renderRes();if(p==='quiz'){buildSubjFilter();renderQuizStat();if(quizTab==='essay')renderEssays();}if(p==='card')loadCards();if(p==='mine')renderMine(false);if(p==='friends')renderFriends(false);if(p==='home'){renderBenefits();renderDash();}
+  if(p==='res')renderRes();if(p==='quiz'){buildSubjFilter();renderQuizStat();if(quizTab==='essay')renderEssays();}if(p==='card')loadCards();if(p==='mine')renderMine(false);if(p==='friends')renderFriends(true);if(p==='home'){renderBenefits();renderDash();}
 }
 document.querySelectorAll('.nav2 a').forEach(a=>a.onclick=()=>switchPage(a.dataset.p));
 // 窗口尺寸变化：重算吸顶栏高度 + 标签字号自适应
@@ -2120,14 +2136,24 @@ function renderFriendsPage(rk, fr, ch){
   $('fr-all-total').textContent='（共 '+(rk.total||0)+' 人）';
 
   const frs=(fr.friends||[]);
-  $('fr-friends').innerHTML = frs.length? frs.map(r=>
-    '<div class="rk2"><div class="no">'+(r.rank||'')+'</div>'+
-    '<div class="nm">'+esc(r.u)+'</div>'+
+  // 好友列表项：显示未读标记 + 最后一条消息摘要（谁发的、说了什么）
+  // 未读数在服务端按好友维度给出（f.unread），此处直接渲染，避免"只知道有消息但不知道谁发的"
+  $('fr-friends').innerHTML = frs.length? frs.map(r=>{
+    const un=_effUnread(r.name,r.unread);
+    const lm=r.last_msg||'';
+    const prev=lm? (r.last_mine? '我：':'对方：')+esc(lm) : '';
+    const tm=r.last_ts? esc(String(r.last_ts).slice(5,16)) : '';
+    return '<div class="rk2'+(un?' unread-row':'')+'"><div class="no">'+(r.rank||'')+'</div>'+
+    '<div class="nm">'+esc(r.u)+(un?' <i class="unread-n">'+un+'</i>':'')+'</div>'+
     '<div class="sc">'+r.score+'</div>'+
     '<div class="rk-act"><button class="btn sm ghost msg-btn" data-chat="'+esc(r.name)+'" title="发私信" onclick=\'openMsg('+jstr(r.name)+')\'>💬</button>'+
-    '<button class="btn sm" title="刷新挑战" onclick=\'startChallengeWith('+jstr(r.name)+')\'>⚔️</button></div></div>'
-  ).join('') : '<div class="hint" style="margin:2px 0">还没有好友。到下方「世界排行榜」点其他同学分数旁的「＋」申请加好友，通过后可私信、挑战、看全名。</div>';
+    '<button class="btn sm" title="刷新挑战" onclick=\'startChallengeWith('+jstr(r.name)+')\'>⚔️</button></div>'+
+    (prev?'<div class="lk-last">'+prev+(tm?' <span class="lk-ts">'+tm+'</span>':'')+'</div>':'')+
+    '</div>';
+  }).join('') : '<div class="hint" style="margin:2px 0">还没有好友。到下方「世界排行榜」点其他同学分数旁的「＋」申请加好友，通过后可私信、挑战、看全名。</div>';
   $('fr-total').textContent='（共 '+frs.length+' 位）';
+  // 关键：列表是 innerHTML 重绘的，会清掉之前插入的 .msg-badge 气泡角标 → 重绘后必须再应用一次
+  try{ applyUnreadDom(); }catch(e){}
 
   const inc=(fr.incoming||[]), out=(fr.outgoing||[]);
   let req='';
@@ -2160,13 +2186,21 @@ function renderMineRank(rk, fr, ch){
   if($('mine-all-total')) $('mine-all-total').textContent='（共 '+(rk.total||0)+' 人）';
 
   const frs=(fr.friends||[]);
-  if($('mine-rank-friends')) $('mine-rank-friends').innerHTML = frs.length? frs.map(r=>
-    '<div class="rk2"><div class="no">'+(r.rank||'')+'</div>'+
-    '<div class="nm">'+esc(r.u)+'</div>'+
+  if($('mine-rank-friends')) $('mine-rank-friends').innerHTML = frs.length? frs.map(r=>{
+    const un=_effUnread(r.name,r.unread);
+    const lm=r.last_msg||'';
+    const prev=lm? (r.last_mine? '我：':'对方：')+esc(lm) : '';
+    const tm=r.last_ts? esc(String(r.last_ts).slice(5,16)) : '';
+    return '<div class="rk2'+(un?' unread-row':'')+'"><div class="no">'+(r.rank||'')+'</div>'+
+    '<div class="nm">'+esc(r.u)+(un?' <i class="unread-n">'+un+'</i>':'')+'</div>'+
     '<div class="sc">'+r.score+'</div>'+
     '<div class="rk-act"><button class="btn sm ghost msg-btn" data-chat="'+esc(r.name)+'" title="发私信" onclick=\'openMsg('+jstr(r.name)+')\'>💬</button>'+
-    '<button class="btn sm" title="刷新挑战" onclick=\'startChallengeWith('+jstr(r.name)+')\'>⚔️</button></div></div>'
-  ).join('') : '<div class="hint" style="margin:2px 0">还没有好友。点击上方世界排行榜里其他同学分数旁的「＋」申请加好友，通过后可私信、挑战、看全名。</div>';
+    '<button class="btn sm" title="刷新挑战" onclick=\'startChallengeWith('+jstr(r.name)+')\'>⚔️</button></div>'+
+    (prev?'<div class="lk-last">'+prev+(tm?' <span class="lk-ts">'+tm+'</span>':'')+'</div>':'')+
+    '</div>';
+  }).join('') : '<div class="hint" style="margin:2px 0">还没有好友。点击上方世界排行榜里其他同学分数旁的「＋」申请加好友，通过后可私信、挑战、看全名。</div>';
+  // 同上：innerHTML 重绘会清掉气泡角标 → 重绘后重新应用
+  try{ applyUnreadDom(); }catch(e){}
 
   const inc=(fr.incoming||[]), out=(fr.outgoing||[]);
   let req='';
@@ -2247,23 +2281,32 @@ async function sendFriendReq(where){
 }
 
 // 好友页渲染（好友列表 + 申请 + 排行榜 + 挑战）
+// force=true → 强制拉取最新（进入好友页时用，保证新消息/新申请立刻可见，不等轮询）
 async function renderFriends(force){
   if(MODE!=='server'||!CUR_USER) return;
   const box=$('fr-friends');
   if(box && !box.innerHTML.trim()) box.innerHTML='<div class="hint">加载中…</div>';
-  // 先用现有缓存画一版（可能不完整），拿到数据后再画一版
+  // 先用现有缓存画一版（可能不完整），拿到数据后再画一版 —— 页面不空白
   _paintFriends();
-  const need = force || !_mcGet('friends') || !_mcGet('rank');
-  if(need){
-    try{
-      const jobs=[];
-      if(force||!_mcGet('friends'))  jobs.push(API.call('/api/friends').then(v=>_mcSet('friends',v)).catch(()=>{}));
-      if(force||!_mcGet('rank'))     jobs.push(API.call('/api/rank').then(v=>_mcSet('rank',v)).catch(()=>{}));
-      if(force||!_mcGet('challenge'))jobs.push(API.call('/api/challenge').then(v=>_mcSet('challenge',v)).catch(()=>{}));
-      await Promise.all(jobs);
-    }catch(e){}
-  }
+  // 好友关系/申请/消息更新频繁 → 每次进好友页都强制从云端刷新一次，
+  // 避免看到过期的未读与申请（用户要求：点「好友」就是从云端更新加载）
+  try{
+    const jobs=[];
+    // 先立刻拉一次未读（秒级），让角标第一时间更新
+    const p1=API.call('/api/friends').then(v=>{ _mcSet('friends',v); _syncUnreadFrom(v); }).catch(()=>{});
+    jobs.push(p1);
+    if(force||!_mcGet('rank'))     jobs.push(API.call('/api/rank').then(v=>_mcSet('rank',v)).catch(()=>{}));
+    if(force||!_mcGet('challenge'))jobs.push(API.call('/api/challenge').then(v=>_mcSet('challenge',v)).catch(()=>{}));
+    await Promise.all(jobs);
+  }catch(e){}
   _paintFriends();
+}
+// 从 /api/friends 响应里同步未读数（好友页与轮询共用一份数据源）
+function _syncUnreadFrom(fr){
+  if(!fr||!fr.friends) return;
+  UNREAD={};
+  (fr.friends||[]).forEach(f=>{ if(f.unread) UNREAD[f.name]=f.unread; });
+  applyUnreadDom();
 }
 
 // 用当前缓存绘制好友页（拆分出来，便于"先画一版、到齐再画一版"）
@@ -2340,21 +2383,30 @@ async function openMsg(name){
   if(changed) _msgReset(name);       // 换人 → 清掉该会话游标与去重表
   await loadMsg(name,true,true);     // 打开会话一律全量拉一次，保证历史完整
   startMsgPoll();
-  // 读完好友消息后刷新列表（未读徽标要消失）
-  try{ if(curPage==='friends') renderFriends(false); }catch(e){}
+  // 读完好友消息后：本地未读立即清零（不等服务端 read 标记回写）
+  // 否则气泡角标要等下一次轮询才消失，用户会以为"读完了数字还在"。
+  const had=(UNREAD[name]||0);
+  if(had>0){
+    _READ_AT[name]=(_READ_AT[name]||0)+had;
+    UNREAD[name]=0;
+    applyUnreadDom();
+  }
+  // 刷新好友列表（未读高亮与最后消息摘要要同步更新）
+  try{ if(curPage==='friends') renderFriends(false); else if(curPage==='mine') _paintMine(); }catch(e){}
 }
-// 聊天轮询：8 秒（用户主动打开聊天窗，需要较实时）+ 页面不可见时自动暂停（省电省流量）
-// 增量拉取（since）使每次轮询只传新消息，响应快且几乎不耗带宽
-// 聊天窗口轮询：5 秒。
-// 现在服务端对未读/好友做了版本号 + 短缓存，轮询几乎不查库（实测 1028ms → 1.5ms），
-// 因此可以缩短间隔换取更及时的消息送达，而不会给数据库造成压力。
+// 聊天轮询：2 秒（用户要求"聊天窗口以最快速度同步"）
+// 增量拉取（since）使每次轮询只传新消息，响应快且几乎不耗带宽；
+// 服务端对未读/好友有版本号 + 短缓存，轮询几乎不查库（实测 1028ms → 1.5ms），
+// 因此 2 秒一次对数据库压力可忽略。
 function startMsgPoll(){
   stopMsgPoll();
+  let tick=0;
   msgTimer=setInterval(()=>{
     if(document.hidden) return;                                  // 后台标签页不轮询
     if(msgWith&&$('msgDrawer').style.display!=='none') loadMsg(msgWith,true);
-    checkIdentity();
-  },5000);
+    // 身份自检降频到每 6 秒一次（2 秒一次太重，且 /api/me 要查库）
+    if(++tick % 3 === 0) checkIdentity();
+  },2000);
 }
 // 身份一致性自检：同一浏览器开两个标签页登录不同账号时，Cookie 会被后登录者覆盖，
 // 导致本标签页实际身份与界面显示的不一致（消息左右归属看起来"串号"）。
@@ -2500,16 +2552,21 @@ function markMsgFailed(text){
   }
 }
 function closeMsg(){ stopMsgPoll(); $('msgDrawer').style.display='none'; msgWith=''; refreshUnread(); }
-// 「我的」页 30 秒轮询未读：有新消息时对应好友的 💬 气泡闪动 + 显示未读数角标
-// 好友未读 / 挑战提醒轮询：20 秒。
-// 服务端已对未读数做版本号缓存（无新消息则零 DB 查询），轮询成本极低，
-// 所以可以缩短到 20 秒，让未读角标与挑战提醒更及时；页面不可见时自动暂停。
+// 未读消息轮询
+// 原实现：20 秒一次，且**只在「我的/好友」页才跑** → 用户在首页/学习页完全收不到未读更新，
+// 导航栏角标不出现、非好友页不刷新，必须手动刷新页面才看到消息（用户反馈的核心痛点）。
+// 改为：
+//   ① 任何页面都轮询（不再受 curPage 限制），间隔 5 秒；
+//   ② 聊天窗口打开时用更快的 2 秒（见 startMsgPoll）；
+//   ③ 标签页切回前台立即补一次（见 visibilitychange 监听）。
+// 成本可控：服务端未读走版本号缓存，无新消息时零 DB 查询；/api/friends 有 30 秒短缓存。
 function startMinePoll(){
   if(mineTimer)return;
   mineTimer=setInterval(()=>{
-    if(document.hidden) return;
-    if((curPage==='mine'||curPage==='friends')&&CUR_USER&&MODE==='server') refreshUnread();
-  },20000);
+    if(document.hidden) return;              // 后台标签页不轮询（省电省流量）
+    if(!CUR_USER||MODE!=='server') return;
+    refreshUnread();
+  },5000);
 }
 async function refreshUnread(){
   // 未读数需要实时性 → 每次都拉最新（好友列表本身变化很慢，不缓存也能接受）
@@ -2520,22 +2577,45 @@ async function refreshUnread(){
   UNREAD={};
   (fr.friends||[]).forEach(f=>{ if(f.unread) UNREAD[f.name]=f.unread; });
   applyUnreadDom();
+  // 好友列表里的未读高亮与消息摘要也要跟着更新（否则要等到下次进页面才刷新）
+  if(curPage==='friends'){ try{ _paintFriends(); }catch(e){} }
+  else if(curPage==='mine'){ try{ _paintMine(); }catch(e){} }
 }
 // 社交/打卡等操作会改变服务端数据 → 让「我的」页缓存失效，下次进页取最新
 function _mcDirty(k){ try{ _mcInvalidate(k); }catch(e){} }
+// 标签页切回前台 / 窗口重新获得焦点 → 立即补一次未读与消息刷新。
+// 用户反馈"切回来还是旧的，要手动刷新页面才更新"——因为后台标签页不轮询，
+// 切回来时若不立即补拉，就要等下一个轮询周期（最长 5 秒）才看到新消息。
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden) return;
+  if(MODE==='server'&&CUR_USER){
+    try{ refreshUnread(); }catch(e){}
+    if(msgWith&&$('msgDrawer').style.display!=='none'){ try{ loadMsg(msgWith,true,true); }catch(e){} }
+  }
+});
+window.addEventListener('focus',()=>{
+  if(document.hidden) return;
+  if(MODE==='server'&&CUR_USER){
+    try{ refreshUnread(); }catch(e){}
+  }
+});
 // ===== 未读徽标 =====
 // 用户反馈"读后会反复出现，在闪红框"——根因是**网络延迟 + 轮询覆盖**：
 //   前端读完把 UNREAD[name] 清零，但服务端 read 标记要等下一次 /api/msg 才写；
 //   45 秒后的轮询拿回服务端的旧 unread 值 → 数字又冒出来 → 红框又闪。
 // 修复：前端维护**本地已读水位**（_READ_AT），轮询回来的未读数做减量合并：
 //   服务端未读 - 本地已读过的数量 = 实际应显示的数量，恒为 0（除非真来了新消息）。
+// 有效未读数：服务端未读 - 本地已读水位（统一口径，行高亮与气泡角标共用）
+function _effUnread(name,raw){
+  let n=(raw!=null&&raw!==undefined)?(+raw||0):(+UNREAD[name]||0);
+  const d=_READ_AT[name]||0;
+  if(d>0) n=Math.max(0,n-d);
+  return n;
+}
 function applyUnreadDom(){
   document.querySelectorAll('.msg-btn[data-chat]').forEach(b=>{
     const name=b.dataset.chat||'';
-    let n=UNREAD[name]||0;
-    // 减去本地已读水位，避免轮询把已读的消息重新算成未读
-    const done=_READ_AT[name]||0;
-    if(done>0) n=Math.max(0,n-done);
+    const n=_effUnread(name);
     // 数字徽标
     let badge=b.querySelector('.msg-badge');
     if(n>0){
@@ -2543,15 +2623,9 @@ function applyUnreadDom(){
       badge.textContent=n>99?'99+':n;
     }else if(badge){ badge.remove(); }
   });
-  const tot=Object.values(UNREAD).reduce((a,b)=>{
-    const nm=Object.keys(UNREAD).find(k=>UNREAD[k]===b);   // 逐个累加更稳，见下
-    return a+(+b||0);
-  },0);
-  // 逐个按同样规则求和
+  // 逐个按同样规则求和（与气泡角标口径一致）
   let real=0;
-  Object.keys(UNREAD).forEach(function(k){
-    let n=UNREAD[k]||0; const d=_READ_AT[k]||0; if(d>0) n=Math.max(0,n-d); real+=n;
-  });
+  Object.keys(UNREAD).forEach(function(k){ real+=_effUnread(k); });
   // 底部导航：只在「好友」tab 显示数字角标；「我的」tab 不显示（好友页已独立）
   const navFriends=document.querySelector('.nav2 a[data-p="friends"]');
   if(navFriends){
@@ -2849,7 +2923,66 @@ const API_SHARE = "E2G3MZIBK2";
 // 云端直链（GitHub 等跨域托管版加载慢/连不上时，提示切换到这里）
 const SWITCH_URL = 'https://52zx.app.workbuddy.host/?sharecode=' + (API_SHARE || 'E2G3MZIBK2');
 function isCloudHost(){ try{ return /app\.workbuddy\.host/i.test(location.host); }catch(e){ return false; } }
-function showSlowTip(msg){ const t=document.getElementById('slowTip'); if(!t) return; if(msg) t.querySelector('.st-txt').innerHTML=msg; const b=document.getElementById('slowSwitch'); if(b) b.href=SWITCH_URL; t.classList.remove('hide'); }
+
+// ===== GitHub Pages 静态托管模式（由 build_ghpages.py 注入 window.__GH_STATIC__ 启用）=====
+// 定位：GitHub 侧既是「云端不可用时的托底」，又「速度优先」自动切到云端。
+//   云端可达   → 顶部提示 + 1.6 秒后自动跳转云端（可点「留在本页」改用离线版）
+//   云端不可达 → 加载同目录 content.json（免费版：无答案/解析）进入离线浏览，资料与做题照常可用
+// 重要：静态站只托管「免费版内容」；完整答案/解析与付费下载包只在云端，付费资产不外泄。
+const GH_STATIC = !!(window.__GH_STATIC__);
+const GH_CLOUD_URL = window.__GH_CLOUD__ || ('https://52zx.app.workbuddy.host/?sharecode=' + (API_SHARE || 'E2G3MZIBK2'));
+let _ghAutoRedirect=null, _ghStay=false;
+async function ghProbeCloud(){
+  // 手动/调试：URL 带 ?gh=offline 时强制走离线版（不跳云端）
+  try{ if((new URLSearchParams(location.search).get('gh')||'').toLowerCase()==='offline') return false; }catch(e){}
+  // 跨域探活：no-cors 模式只判断「有没有响应」，读不到状态码也不影响判定
+  const ctrl=new AbortController();
+  const to=setTimeout(()=>ctrl.abort(),2500);
+  try{
+    await fetch('https://52zx.app.workbuddy.host/api/health?sharecode='+encodeURIComponent(API_SHARE||'E2G3MZIBK2'),
+      {method:'GET',mode:'no-cors',cache:'no-store',signal:ctrl.signal});
+    clearTimeout(to); return true;
+  }catch(e){ clearTimeout(to); return false; }
+}
+async function ghStartOffline(){
+  try{ if(_ghAutoRedirect){ clearTimeout(_ghAutoRedirect); _ghAutoRedirect=null; } }catch(e){}
+  MODE='offline';
+  try{ if(!DATA) await loadContent(); }catch(e){}
+  setMember({on:true,tier:'all',grade:'',grades:GRADES.slice()});
+  refreshMember();
+  updateLineLabel();
+  if(!DATA){
+    overlay('loginOverlay',true);
+    showDone('离线资料未就绪，请稍后重试，或点上方按钮打开云端版。');
+    return;
+  }
+  CUR_USER='本地';
+  try{ enterApp(); }catch(e){}
+  showSlowTip('⚠️ 云端暂时不可用，已切换到 <b>离线浏览版</b>：资料浏览与做题可用；答案/解析与资料下载需云端恢复。');
+  const sb=document.getElementById('slowSwitch'); if(sb){ sb.textContent='打开云端版 →'; sb.href=GH_CLOUD_URL; sb.classList.remove('hide'); }
+  const sr=document.getElementById('slowReload'); if(sr){ sr.textContent='重新探测'; sr.classList.remove('hide'); sr.onclick=()=>{ try{location.reload();}catch(e){} }; }
+}
+// 平台代理（app.workbuddy.host）要求每个请求都带 sharecode，否则返回 403「链接不完整」。
+// 浏览器首次带 sharecode 打开首页后会拿到 __wb_rsc Cookie，但 Cookie 可能被浏览器策略
+// 或过期清理，导致后续 API 裸路径请求被拦。因此所有请求一律显式附带 sharecode。
+function shareToken(){
+  let s=API_SHARE||'';
+  if(!s){ try{ s=(new URLSearchParams(location.search).get('sharecode'))||''; }catch(e){ s=''; } }
+  return s;
+}
+function shareUrl(url){
+  const s=shareToken();
+  if(!s) return url;
+  return url+(url.indexOf('?')>=0?'&':'?')+'sharecode='+encodeURIComponent(s);
+}
+function showSlowTip(msg){ const t=document.getElementById('slowTip'); if(!t) return;
+  if(msg) t.querySelector('.st-txt').innerHTML=msg;
+  // 已在云端域名下时，「打开云端版」指向的就是当前页 → 改为「重新加载资料」，避免误导
+  const b=document.getElementById('slowSwitch'); const rb=document.getElementById('slowReload');
+  const cloud=isCloudHost();
+  if(b){ b.classList.toggle('hide',cloud); if(!cloud) b.href=SWITCH_URL; }
+  if(rb) rb.classList.toggle('hide',!cloud);
+  t.classList.remove('hide'); }
 function hideSlowTip(){ const t=document.getElementById('slowTip'); if(t) t.classList.add('hide'); }
 let _slowTimer=null, _backendBusy=false, _redirectTimer=null;
 function startSlowWatch(){ _backendBusy=true; clearTimeout(_slowTimer); clearTimeout(_redirectTimer); _slowTimer=setTimeout(()=>{ if(_backendBusy && MODE==='server' && !isCloudHost()){ showSlowTip('当前访问较慢，即将自动切换到 <b>云端直链</b>…'); _redirectTimer=setTimeout(()=>{ if(_backendBusy && MODE==='server' && !isCloudHost()){ try{window.location.replace(SWITCH_URL);}catch(e){} } }, 3500); } }, 5000); }
@@ -2862,12 +2995,12 @@ const API = {
       const idx=(API_BASE_IDX+i)%bases.length;
       const base=bases[idx];
       let url=(base&&path[0]==='/')?base.replace(/\/$/,'')+path:path;
-      let share = API_SHARE || (function(){ try{ return new URLSearchParams(location.search).get('sharecode')||''; }catch(e){ return ''; } })();
-      if(share){ url+=(url.indexOf('?')>=0?'&':'?')+'sharecode='+encodeURIComponent(share); }
+      url=shareUrl(url);
       const opt={method:body===undefined?'GET':'POST',credentials:'include',cache:'no-store'};
       if(body!==undefined){ opt.headers={'Content-Type':'application/json'}; opt.body=JSON.stringify(body); }
       try{
-        const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),9000);
+        // 超时 9s → 20s：线上实测接口偶发 6~15 秒（沙箱冷启动/大包），9s 会误杀
+        const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),20000);
         const r=await fetch(url,{...opt,signal:ctrl.signal}); clearTimeout(to);
         if(r.ok){ if(bases.length>1&&idx!==API_BASE_IDX){ API_BASE_IDX=idx; try{localStorage.setItem('zb_base',String(idx));}catch(e){} } updateLineLabel();
           let j={}; try{ j=await r.json(); }catch(e){} return j; }
@@ -3086,8 +3219,7 @@ async function aiCall(path,body,timeoutMs){
   const bases=API_BASES.length?API_BASES:[''];
   const base=bases[API_BASE_IDX]||'';
   let url=(base&&path[0]==='/')?base.replace(/\/$/,'')+path:path;
-  let share=API_SHARE||(function(){try{return new URLSearchParams(location.search).get('sharecode')||''}catch(e){return ''}})();
-  if(share){url+=(url.indexOf('?')>=0?'&':'?')+'sharecode='+encodeURIComponent(share);}
+  url=shareUrl(url);
   const opt={method:body===undefined?'GET':'POST',credentials:'include',cache:'no-store'};
   if(body!==undefined){opt.headers={'Content-Type':'application/json'};opt.body=JSON.stringify(body);}
   const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),timeoutMs||75000);
@@ -3215,8 +3347,16 @@ async function loadContent(){
   // 3) 后端对内容做了 gzip+base64 混淆，这里按协议解码。三层把关：登录 + 审核 + 凭证。
   let ticket="";
   try{ const tk=await API.call('/api/content/ticket'); ticket=tk&&tk.ticket||""; }catch(e){ ticket=""; }
-  const data=await fetchContent(ticket);
-  DATA=data;
+  if(ticket||!GH_STATIC){
+    try{ const data=await fetchContent(ticket); DATA=data; return DATA; }catch(e){}
+  }
+  // 2) 静态托管兜底：同目录 content.json（免费版：已剥离答案/解析/赋分要点）
+  if(GH_STATIC){
+    try{
+      const r=await fetch('content.json',{cache:'no-store'});
+      if(r.ok){ DATA=await r.json(); return DATA; }
+    }catch(e){}
+  }
   return DATA;
 }
 async function fetchContent(ticket){
@@ -3225,11 +3365,15 @@ async function fetchContent(ticket){
   for(let i=0;i<bases.length;i++){
     const idx=(API_BASE_IDX+i)%bases.length;
     const base=bases[idx];
-    const url=(base&&'/api/content'[0]==='/')?base.replace(/\/$/,'')+'/api/content':'/api/content';
+    const raw=(base&&'/api/content'[0]==='/')?base.replace(/\/$/,'')+'/api/content':'/api/content';
+    // 关键：平台代理要求带 sharecode，否则 403「链接不完整」→ 页面反复刷新
+    const url=shareUrl(raw);
     const opt={method:'GET',credentials:'include',cache:'no-store',headers:{}};
     if(ticket) opt.headers['X-Content-Ticket']=ticket;
     try{
-      const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),12000);
+      // 超时放宽到 30 秒：线上实测 /api/content 中位 1s、偶发 6~15s（沙箱冷启动/大包），
+      // 原 12 秒阈值会把慢响应误判为失败，进而触发无限重试循环。
+      const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),30000);
       const r=await fetch(url,{...opt,signal:ctrl.signal}); clearTimeout(to);
       if(r.status===200){
         // 新协议：服务端直接发 gzip 二进制（Content-Encoding: gzip），浏览器已自动解压，
@@ -3250,7 +3394,12 @@ async function fetchContent(ticket){
       if(r.status===403) throw Object.assign(new Error(j.msg||'无权限获取资料'),{code:j.code||'DENY'});
       if(r.status===429) throw Object.assign(new Error('获取过快，请稍后再试'),{code:'RATE'});
       lastErr=new Error('HTTP '+r.status);
-    }catch(e){ if(e.code) throw e; lastErr=e; }
+    }catch(e){
+      if(e.code) throw e;
+      // 超时 → 标记 SLOW，上层据此提示「网络较慢」而不是当作失败反复刷新
+      if(e && e.name==='AbortError'){ lastErr=Object.assign(new Error('网络较慢，资料加载超时'),{code:'SLOW'}); continue; }
+      lastErr=e;
+    }
   }
   throw lastErr||new Error('获取资料失败');
 }
@@ -3339,6 +3488,31 @@ async function doLogin(u,p){
   try{ writeRemember(u,p); }catch(e){}
   // 勾选"记住我"时，服务端会签发长期令牌（HttpOnly Cookie），下次可免密自动登录
   await loadContent(); enterApp();
+  // 登录后立即拉取未读消息与挑战申请（不等 20 秒轮询）
+  try{ await syncSocialNow(); }catch(e){}
+}
+// 登录/自动登录后立即同步社交数据：未读消息 + 好友申请 + 挑战
+// 用户反馈"登录后要先刷新才知道有没有消息和挑战申请" → 这里做即时拉取。
+async function syncSocialNow(){
+  if(MODE!=='server'||!CUR_USER) return;
+  try{
+    const jobs=[];
+    jobs.push(API.call('/api/friends').then(v=>{ _mcSet('friends',v); _syncUnreadFrom(v); }).catch(()=>{}));
+    jobs.push(API.call('/api/challenge').then(v=>_mcSet('challenge',v)).catch(()=>{}));
+    await Promise.all(jobs);
+    // 有待处理的好友申请/挑战时，给个明确提示（角标之外再加一条人话提示）
+    const fr=_mcRaw('friends'), ch=_mcRaw('challenge');
+    const inc=(fr&&fr.incoming||[]).length;
+    const chal=((ch&&ch.list)||[]).filter(c=>c.status==='pending'&&c.to_name===CUR_USER).length;
+    const un=Object.keys(UNREAD).reduce((a,k)=>a+_effUnread(k),0);
+    const tips=[];
+    if(un>0) tips.push(un+' 条未读消息');
+    if(inc>0) tips.push(inc+' 个好友申请');
+    if(chal>0) tips.push(chal+' 个挑战待应战');
+    if(tips.length) toast('📬 你有 '+tips.join('、'),3200);
+    // 把当前页好友列表也刷新一下（若正停留在好友页）
+    if(curPage==='friends'){ try{ _paintFriends(); }catch(e){} }
+  }catch(e){}
 }
 // ===== "记住我" =====
 // 安全改造（旧版把明文密码存 localStorage，浏览器插件/共用电脑/被 XSS 都能直接读到）：
@@ -3385,6 +3559,9 @@ async function doLogout(){
   location.reload();
 }
 
+// 资料加载重试计数（声明在 boot 之前，避免 TDZ）
+var _loadRetry=0;
+
 async function boot(){
   try{ const inv=new URLSearchParams(location.search).get('inv'); if(inv) localStorage.setItem('zb_inv',inv); }catch(e){}
   try{ readRemember(); }catch(e){}
@@ -3402,6 +3579,20 @@ async function boot(){
   }
   syncSticky();
   startSlowWatch();
+  // —— GitHub Pages 静态托管分支：云端优先（速度最快），云端不可用则本地离线托底 ——
+  if(GH_STATIC){
+    const up=await ghProbeCloud();
+    if(up){
+      showSlowTip('☁️ 云端可用，正在切换到速度更快的 <b>云端版</b>（会员功能完整）…');
+      const sb=document.getElementById('slowSwitch'); if(sb){ sb.textContent='立即进入云端 →'; sb.href=GH_CLOUD_URL; sb.classList.remove('hide'); }
+      const sr=document.getElementById('slowReload'); if(sr){ sr.textContent='留在本页（离线版）'; sr.classList.remove('hide');
+        sr.onclick=()=>{ _ghStay=true; ghStartOffline(); }; }
+      if(!_ghStay) _ghAutoRedirect=setTimeout(()=>{ try{location.replace(GH_CLOUD_URL);}catch(e){} },1600);
+      return;
+    }
+    await ghStartOffline();
+    return;
+  }
   // 能连上服务端 → 登录免费使用；连不上 → 视为个人离线版（无需登录）
   try{ await API.call('/api/health'); MODE='server'; }catch(e){ MODE='offline'; }
   updateLineLabel();
@@ -3460,6 +3651,8 @@ async function boot(){
     if(me.dash){ _DASH=me.dash; }
     // 首屏不等资料：先进应用壳，资料在后台异步补齐
     enterApp();
+    // 登录后立即拉取未读消息 / 好友申请 / 挑战（不等 20 秒轮询）
+    try{ setTimeout(()=>{ syncSocialNow(); }, 0); }catch(e){}
     // 用户态数据已就位 → 填充仪表盘/下载卡（与首页其他区块同批出现）
     fillShell();
     // 后台预取「我的」页数据 → 用户第一次点进去也是秒开（不等数据库）
@@ -3473,15 +3666,48 @@ async function boot(){
       try{ fillShell(); }catch(e){}
       stopSlowWatch();
     }catch(e){
-      // 资料加载失败：若已经渲染出壳则只提示，不弹回登录框
-      showSlowTip('资料加载失败，正在重试…');
-      setTimeout(()=>location.reload(), 1800);
+      // 资料加载失败：原地重试（不再 location.reload，避免整页反复刷新跳转）
+      // 慢（SLOW）→ 多给几次机会；真失败 → 最多 3 次后给出可读提示并保留应用壳
+      const slow=(e&&e.code==='SLOW');
+      const tries=slow?4:2;
+      if(_loadRetry<tries){
+        _loadRetry++;
+        const wait=800*_loadRetry;
+        showSlowTip((slow?'网络较慢，':'资料加载失败，')+'正在重试…（第 '+_loadRetry+' 次）');
+        setTimeout(()=>{ try{ _loadContentWithRetry(); }catch(_){} }, wait);
+      }else{
+        const msg=(e&&e.message)?esc(e.message):'资料加载失败';
+        showSlowTip('⚠️ '+msg+'。请点击右上角刷新按钮重试');
+        stopSlowWatch();
+      }
       return;
     }
     return;
   }
   stopSlowWatch();
   overlay('loginOverlay',true);
+}
+// 资料加载重试（原地，不整页刷新）
+async function _loadContentWithRetry(){
+  try{
+    await loadContent();
+    applyData();
+    try{ fillShell(); }catch(e){}
+    stopSlowWatch();
+    _loadRetry=0;
+  }catch(e){
+    const slow=(e&&e.code==='SLOW');
+    const tries=slow?4:2;
+    if(_loadRetry<tries){
+      _loadRetry++;
+      showSlowTip((slow?'网络较慢，':'资料加载失败，')+'正在重试…（第 '+_loadRetry+' 次）');
+      setTimeout(()=>{ try{ _loadContentWithRetry(); }catch(_){} }, 800*_loadRetry);
+    }else{
+      const msg=(e&&e.message)?esc(e.message):'资料加载失败';
+      showSlowTip('⚠️ '+msg+'。请点击右上角刷新按钮重试');
+      stopSlowWatch();
+    }
+  }
 }
 
 // 登录 / 注册 事件
@@ -3516,6 +3742,13 @@ $('li-clear').onclick=()=>{ clearRemember(false); $('li-msg').className='ov-msg 
 $('leToggleQ').onclick=()=>{ const e=document.getElementById('leContact'); if(e) e.classList.toggle('hide'); };
 $('leToggleD').onclick=()=>{ const e=document.getElementById('lePay'); if(e) e.classList.toggle('hide'); };
 $('slowClose').onclick=()=>hideSlowTip();
+// 云端环境下的「重新加载资料」：原地重新拉取资料，不整页刷新
+$('slowReload').onclick=()=>{
+  hideSlowTip();
+  _loadRetry=0;
+  showSlowTip('正在重新加载资料…');
+  setTimeout(()=>{ try{ _loadContentWithRetry(); }catch(e){} }, 200);
+};
 $('pay-close').onclick=()=>{ overlay('payOverlay',false); };
 $('pay-x').onclick=()=>{ overlay('payOverlay',false); };
 $('pay-back').onclick=()=>{ doLogout(); };

@@ -2416,18 +2416,30 @@ class Handler(BaseHTTPRequestHandler):
         #   ① 好友关系 + 积分榜：30 秒短缓存（社交关系变化很慢）；
         #   ② 未读数：版本号缓存（无新消息则完全不查库）。
         # 这样 45 秒一次的未读轮询基本是纯内存响应，数据库压力降一个数量级。
+        # ③ 最后一条消息：随好友列表一起缓存（同 30 秒窗口），供前端显示"谁发的、说了什么"。
         cached = _FRIENDS_CACHE.get(me)
         if cached and time.time() - cached[0] < 30:
             base = cached[1]
             unread, _c = unread_get(me)
-            flist = []
-            for r in base["friends"]:
-                row = dict(r); row["unread"] = unread.get(r["name"], 0); flist.append(row)
-            flist.sort(key=lambda x: (-x.get("score", 0), -x.get("quiz_n", 0)))
-            for i, r in enumerate(flist):
-                r["rank"] = i + 1
-            return self.j(200, {"ok": True, "friends": flist,
-                                "incoming": base["incoming"], "outgoing": base["outgoing"]})
+            # 关键：未读版本号变化 = 有新消息到达 → 此时缓存里的 lastmsg 已过期，
+            # 直接绕过缓存重算，保证「未读数」与「消息摘要」始终一致、且新消息立即可见。
+            if _c:
+                cached = None
+            else:
+                flist = []
+                for r in base["friends"]:
+                    row = dict(r); row["unread"] = unread.get(r["name"], 0)
+                    lm = base.get("lastmsg", {}).get(r["name"])
+                    if lm:
+                        row["last_msg"] = lm.get("text", "")
+                        row["last_ts"] = lm.get("ts", "")
+                        row["last_mine"] = bool(lm.get("mine"))
+                    flist.append(row)
+                flist.sort(key=lambda x: (-x.get("score", 0), -x.get("quiz_n", 0)))
+                for i, r in enumerate(flist):
+                    r["rank"] = i + 1
+                return self.j(200, {"ok": True, "friends": flist,
+                                    "incoming": base["incoming"], "outgoing": base["outgoing"]})
         # 好友/申请/未读原本 3 次串行往返 → 合并成 1 次 pipeline
         friends, incoming, outgoing = turso_multi([
             ("SELECT b FROM zb_friends WHERE a=? AND status='friend'", [(me, "text")]),
@@ -2446,11 +2458,36 @@ class Handler(BaseHTTPRequestHandler):
             r["rank"] = i + 1
         inc_out = {"incoming": [{"u": _mask_name(r["a"]), "name": r["a"], "ts": r.get("ts")} for r in incoming],
                    "outgoing": [{"u": _mask_name(r["b"]), "name": r["b"], "ts": r.get("ts")} for r in outgoing]}
-        _FRIENDS_CACHE[me] = (time.time(), {"friends": [dict(r) for r in flist], "incoming": inc_out["incoming"], "outgoing": inc_out["outgoing"]})
+        # 各好友的最后一条消息（取双方会话中 id 最大的一条）→ 让好友列表能显示消息摘要
+        lastmsg = {}
+        if fnames:
+            try:
+                ph = ",".join("?" * len(fnames))
+                rows = turso(
+                    "SELECT frm,to_u,text,ts FROM zb_msgs WHERE id IN ("
+                    "  SELECT MAX(id) FROM zb_msgs WHERE (frm IN (%s) AND to_u=?) "
+                    "  OR (to_u IN (%s) AND frm=?) GROUP BY frm,to_u)" % (ph, ph),
+                    [(n, "text") for n in fnames] + [(me, "text")] + [(n, "text") for n in fnames] + [(me, "text")])
+                for r in rows:
+                    peer = r.get("to_u") if r.get("frm") == me else r.get("frm")
+                    if peer in fnames:
+                        lastmsg[peer] = {"text": (r.get("text") or "")[:40],
+                                         "ts": r.get("ts") or "",
+                                         "mine": r.get("frm") == me}
+            except Exception:
+                lastmsg = {}
+        _FRIENDS_CACHE[me] = (time.time(), {"friends": [dict(r) for r in flist],
+                                              "incoming": inc_out["incoming"],
+                                              "outgoing": inc_out["outgoing"],
+                                              "lastmsg": lastmsg})
         unread, _changed = unread_get(me)
         flist2 = []
         for r in flist:
-            row = dict(r); row["unread"] = unread.get(r["name"], 0); flist2.append(row)
+            row = dict(r); row["unread"] = unread.get(r["name"], 0)
+            lm = lastmsg.get(r["name"])
+            if lm:
+                row["last_msg"] = lm["text"]; row["last_ts"] = lm["ts"]; row["last_mine"] = lm["mine"]
+            flist2.append(row)
         return self.j(200, {"ok": True, "friends": flist2,
                             "incoming": inc_out["incoming"], "outgoing": inc_out["outgoing"]})
 
@@ -2534,6 +2571,13 @@ class Handler(BaseHTTPRequestHandler):
               [(me, "text"), (to, "text"), (text, "text"), (ts, "text")])
         # 通知接收方：有新消息 → 版本号 +1（内存操作，轮询时零 DB 即可感知）
         unread_bump(to)
+        # 好友列表缓存失效：接收方的「最后一条消息摘要」要立刻反映这条新消息，
+        # 否则 30 秒内 /api/friends 仍返回旧摘要（用户看不到"谁发了什么"）。
+        try:
+            _FRIENDS_CACHE.pop(to, None)
+            _FRIENDS_CACHE.pop(me, None)
+        except Exception:
+            pass
         self.j(200, {"ok": True, "ts": ts})
 
     def api_msg_get(self, with_u, since=None):
@@ -2564,6 +2608,11 @@ class Handler(BaseHTTPRequestHandler):
             pass
         # 已读状态变了 → 未读缓存失效，下次轮询会重新计算
         unread_drop(me)
+        # 好友列表缓存也一并失效：否则 30 秒内好友列表里的 last_msg/unread 仍是旧值
+        try:
+            _FRIENDS_CACHE.pop(me, None)
+        except Exception:
+            pass
         last_id = None
         for r in rows:
             try: last_id = int(r.get("id"))
