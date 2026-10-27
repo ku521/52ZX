@@ -2372,8 +2372,18 @@ class Handler(BaseHTTPRequestHandler):
     # ---------- 好友 / 私信 / 刷新挑战（云端社交） ----------
     def _scores_for(self, names):
         """复用排行榜计分逻辑，仅对给定用户名聚合，返回 {name: stats}。"""
-        recs = turso("SELECT username,kind,val FROM zb_records")
-        chks = turso("SELECT username,day,gained FROM zb_checkin")
+        if not names:
+            return {}
+        # 性能：原实现拉全表 zb_records / zb_checkin（与好友数无关），
+        # 好友页重算一次要 8 秒（用户反馈"消息显示很慢"）。
+        # 现只查这几位好友的行，并按需拆成 pipeline 一次往返。
+        ph = ",".join("?" * len(names))
+        recs, chks = turso_multi([
+            ("SELECT username,kind,val FROM zb_records WHERE username IN (%s)" % ph,
+             [(n, "text") for n in names]),
+            ("SELECT username,day,gained FROM zb_checkin WHERE username IN (%s)" % ph,
+             [(n, "text") for n in names]),
+        ])
         agg = {n: {"quiz_n": 0, "quiz_r": 0, "cards": 0, "ck_days": 0,
                    "ck_pts": 0, "days": []} for n in names}
         for r in recs:
@@ -2459,28 +2469,44 @@ class Handler(BaseHTTPRequestHandler):
         inc_out = {"incoming": [{"u": _mask_name(r["a"]), "name": r["a"], "ts": r.get("ts")} for r in incoming],
                    "outgoing": [{"u": _mask_name(r["b"]), "name": r["b"], "ts": r.get("ts")} for r in outgoing]}
         # 各好友的最后一条消息（取双方会话中 id 最大的一条）→ 让好友列表能显示消息摘要
+        # 性能：与未读查询合并到同一次 pipeline，避免串行多次往返（每次 Turso 往返约 1~2 秒）
         lastmsg = {}
-        if fnames:
-            try:
-                ph = ",".join("?" * len(fnames))
-                rows = turso(
+        unread = {}
+        try:
+            ph2 = ",".join("?" * len(fnames)) if fnames else ""
+            jobs = [
+                ("SELECT frm, COUNT(*) AS n FROM zb_msgs WHERE to_u=? AND read=0 GROUP BY frm",
+                 [(me, "text")]),
+            ]
+            if fnames:
+                jobs.append((
                     "SELECT frm,to_u,text,ts FROM zb_msgs WHERE id IN ("
                     "  SELECT MAX(id) FROM zb_msgs WHERE (frm IN (%s) AND to_u=?) "
-                    "  OR (to_u IN (%s) AND frm=?) GROUP BY frm,to_u)" % (ph, ph),
-                    [(n, "text") for n in fnames] + [(me, "text")] + [(n, "text") for n in fnames] + [(me, "text")])
-                for r in rows:
+                    "  OR (to_u IN (%s) AND frm=?) GROUP BY frm,to_u)" % (ph2, ph2),
+                    [(n, "text") for n in fnames] + [(me, "text")] + [(n, "text") for n in fnames] + [(me, "text")]))
+            res = turso_multi(jobs)
+            unread = {r["frm"]: int(r["n"]) for r in (res[0] or [])}
+            if fnames and len(res) > 1:
+                for r in (res[1] or []):
                     peer = r.get("to_u") if r.get("frm") == me else r.get("frm")
                     if peer in fnames:
                         lastmsg[peer] = {"text": (r.get("text") or "")[:40],
                                          "ts": r.get("ts") or "",
                                          "mine": r.get("frm") == me}
-            except Exception:
-                lastmsg = {}
+        except Exception:
+            lastmsg = {}
+            unread = {}
         _FRIENDS_CACHE[me] = (time.time(), {"friends": [dict(r) for r in flist],
                                               "incoming": inc_out["incoming"],
                                               "outgoing": inc_out["outgoing"],
                                               "lastmsg": lastmsg})
-        unread, _changed = unread_get(me)
+        # 未读数已在上面的 pipeline 里一并查出（unread），此处直接用，
+        # 并同步刷新版本号缓存，避免下一次请求因版本号未变而误用旧缓存。
+        try:
+            with _UNREAD_LOCK:
+                _UNREAD_CACHE[me] = {"unread": unread, "ver": unread_version(me), "ts": time.time()}
+        except Exception:
+            pass
         flist2 = []
         for r in flist:
             row = dict(r); row["unread"] = unread.get(r["name"], 0)

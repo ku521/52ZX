@@ -2578,8 +2578,21 @@ async function refreshUnread(){
   (fr.friends||[]).forEach(f=>{ if(f.unread) UNREAD[f.name]=f.unread; });
   applyUnreadDom();
   // 好友列表里的未读高亮与消息摘要也要跟着更新（否则要等到下次进页面才刷新）
-  if(curPage==='friends'){ try{ _paintFriends(); }catch(e){} }
-  else if(curPage==='mine'){ try{ _paintMine(); }catch(e){} }
+  // 注意：只在「未读/摘要确实变了」时才重绘 —— 5 秒一次的无条件重绘会导致
+  // 滚动位置丢失、按钮闪烁，反而干扰使用。
+  if(curPage==='friends'){ try{ if(_friendsDirty(fr)) _paintFriends(); }catch(e){} }
+  else if(curPage==='mine'){ try{ if(_friendsDirty(fr)) _paintMine(); }catch(e){} }
+}
+// 判断好友列表相对上次是否有实质变化（未读数或最后消息摘要）→ 决定要不要重绘
+let _lastFriendsSig='';
+function _friendsSig(fr){
+  if(!fr||!fr.friends) return '';
+  return (fr.friends||[]).map(f=>f.name+':'+(f.unread||0)+':'+(f.last_msg||'')+':'+(f.last_ts||'')).join('|');
+}
+function _friendsDirty(fr){
+  const sig=_friendsSig(fr);
+  if(sig!==_lastFriendsSig){ _lastFriendsSig=sig; return true; }
+  return false;
 }
 // 社交/打卡等操作会改变服务端数据 → 让「我的」页缓存失效，下次进页取最新
 function _mcDirty(k){ try{ _mcInvalidate(k); }catch(e){} }
