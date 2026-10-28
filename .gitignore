@@ -50,6 +50,9 @@ _cdp_test.js
 _test_persona.py
 _ui_roles.png
 _ui_chat.png
+_edge-cdp/  # Edge 真机验证用户数据目录
+_edge-cdp2/
+_edge-cdp3/
 # —— 邀请/分享功能开发期的临时脚本与截图（勿入库）——
 _fix_*.py
 _cdp_*.js
