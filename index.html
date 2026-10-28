@@ -3956,6 +3956,12 @@ function aiScrollLock(on){
     window.scrollTo(0,_aiLockY);
   }
 }
+function aiGotoSetup(){            // 打开面板并切到「设置/绑定」视图
+  aiToggle(true);
+  const cw=$('ai-chat-wrap'), st=$('ai-setup');
+  if(cw)cw.style.display='none';
+  if(st){ st.style.display='flex'; renderAiSetup(); }
+}
 function aiToggle(on){
   aiRoleBadge();
   const p=$('aiPanel');if(!p)return;
@@ -4387,7 +4393,7 @@ async function aiSend(){
     else if(e.code==='UPSTREAM') tip='（模型调用失败，点设置核对 Key / 模型名 / 接口地址）';
     else if(e.code==='QUOTA') tip='（今日额度已用完，明天再来或开通会员）';
     th.textContent='⚠️ '+e.message+tip;th.classList.remove('think');
-    th.insertAdjacentHTML('beforeend',' <a href="javascript:void(0)" onclick="aiToggle(true);aiLoadState()" style="color:#1a5fb4;font-weight:700">去设置 ›</a>');
+    th.insertAdjacentHTML('beforeend',' <a href="javascript:void(0)" onclick="aiGotoSetup()" style="color:#1a5fb4;font-weight:700">去设置 ›</a>');
     AI_ST.hist.pop(); // 失败的这轮不占历史
   }
   AI_ST.loading=false;
