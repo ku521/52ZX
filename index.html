@@ -4544,12 +4544,9 @@ async function doLogout(){
 var _loadRetry=0;
 
 async function boot(){
+  // 通过邀请链接进入：保存邀请人（用于注册时建立邀请关系），但不再弹出独立的状态卡，
+  // 直接进入登录/主页流程，避免「主页 → 状态卡 → 登录」的多余跳转。
   try{ const inv=new URLSearchParams(location.search).get('inv'); if(inv) localStorage.setItem('zb_inv',inv); }catch(e){}
-  // 通过邀请链接进入的访客（未登录/非会员）→ 展示邀请人公开状态卡
-  // 提前发起（不等 1.5s），但结果到达时若用户已登录/已关掉弹窗就不再打扰
-  var _invPending=false;
-  try{ if(new URLSearchParams(location.search).get('inv')) _invPending=true; }catch(e){}
-  if(_invPending) showInvitedCard();
   try{ readRemember(); }catch(e){}
   try{ _mcRestore(); }catch(e){}      // 恢复「我的」页本地缓存（刷新页面也能秒开）
   const wxel=$('wxid');if(wxel)wxel.textContent=WX.id;
