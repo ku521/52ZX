@@ -3837,7 +3837,7 @@ function ttsUseCloud(cfg){
 // 音频解锁：必须在"用户手势"内调用一次。
 // 根因：AI 回复是异步返回的，此时 play() 已脱离用户手势上下文，iOS Safari / 部分安卓浏览器
 // 会按自动播放策略拒绝播放 → 表现为"AI 回复后没播报"，且旧代码把错误静默吞掉，用户毫无感知。
-let _ttsAC=null;
+let _ttsAC=null, _ttsSilentUrl=null, _ttsGestureInstalled=false, _ttsMicAsked=false;
 function ttsUnlockAudio(){
   try{
     const AC=window.AudioContext||window.webkitAudioContext;
@@ -3854,14 +3854,63 @@ function ttsUnlockAudio(){
       const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u);
     }
   }catch(e){}
+  // 解锁 <audio> 媒体路径：播放一段极短静音再暂停（云端 TTS 走 new Audio().play() 这条，
+  // 仅靠 AudioContext 的 1 采样点静音不够，必须同时把媒体元素也解锁）
+  try{
+    if(!_ttsSilentUrl) _ttsSilentUrl=ttsMakeSilentWavUrl();
+    if(_ttsSilentUrl){
+      const a=new Audio(_ttsSilentUrl); a.muted=true; a.volume=0;
+      const p=a.play(); if(p&&p.catch) p.catch(()=>{});
+      setTimeout(()=>{ try{ a.pause(); }catch(e){} }, 60);
+    }
+  }catch(e){}
 }
+// 运行时生成一段极短静音 wav 的 object URL，用来解锁 HTMLMediaElement 的自动播放
+function ttsMakeSilentWavUrl(){
+  try{
+    const sr=8000, sec=0.05, n=Math.floor(sr*sec);
+    const buf=new ArrayBuffer(44+n); const dv=new DataView(buf);
+    const ws=(o,s)=>{ for(let i=0;i<s.length;i++) dv.setUint8(o+i, s.charCodeAt(i)); };
+    ws(0,'RIFF'); dv.setUint32(4,36+n,true); ws(8,'WAVE'); ws(12,'fmt ');
+    dv.setUint32(16,16,true); dv.setUint32(20,1,true); dv.setUint32(22,1,true);
+    dv.setUint32(24,sr,true); dv.setUint32(28,sr,true); dv.setUint32(32,1,true); dv.setUint32(34,8,true);
+    ws(36,'data'); dv.setUint32(40,n,true);
+    return URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));
+  }catch(e){ return ''; }
+}
+// 全局一次性手势监听：页面任意首次交互（点按/触摸/按键）即解锁音频会话。
+// 这样即便 AI 回复在数秒后才到，音频会话也早已激活，play() 不再被自动播放策略拦截 →
+// 不再出现"要点一下录音才有声"的怪象。
+function ttsInstallGestureUnlock(){
+  if(_ttsGestureInstalled) return; _ttsGestureInstalled=true;
+  const h=()=>{ ttsUnlockAudio(); };
+  ['pointerdown','touchstart','click','keydown'].forEach(ev=>{
+    try{ window.addEventListener(ev, h, {capture:true, passive:true}); }catch(e){}
+  });
+}
+// 麦克风授权预申请：首次进入 AI 语音交互时调用一次，借 getUserMedia 拿到授权并立即释放，
+// 让浏览器把"麦克风"权限记在源站上——标准浏览器刷新后不再重复弹窗（部分 WebView 宿主不持久化，属平台限制）。
+function ttsEnsureMic(){
+  if(_ttsMicAsked) return; _ttsMicAsked=true;
+  try{
+    if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+      navigator.mediaDevices.getUserMedia({audio:true})
+        .then(s=>{ try{ s.getTracks().forEach(t=>t.stop()); }catch(e){} })
+        .catch(()=>{});
+    }
+  }catch(e){}
+}
+
 let _cloudAudio=null;
 // 播放云端音频；被拦截或出错时调用 onFail → 回退到本机语音（设备默认音接替）
 function ttsPlayCloud(url,onFail){
   try{ if(_cloudAudio){ _cloudAudio.pause(); _cloudAudio=null; } }catch(e){}
   const a=new Audio(url); _cloudAudio=a;
+  try{ if(_ttsAC&&_ttsAC.state==='suspended') _ttsAC.resume(); }catch(e){}
+  try{ a.playsInline=true; a.preload='auto'; }catch(e){}
   a.play().catch(()=>{
     try{ if(_cloudAudio===a) _cloudAudio=null; }catch(e){}
+    // 仍被自动播放策略拦截 → 等下一次用户手势再播（全局监听已就绪），此处先回退本地语音
     if(typeof onFail==='function') onFail();
   });
 }
@@ -4314,6 +4363,7 @@ let _aiSR=null, _aiFinal='', _aiBase='', _aiBusy=false, _aiTok=0;
 function aiMicToggle(){
   const btn=$('ai-mic'), inp=$('ai-in'), live=$('ai-live');
   if(!btn||!inp) return;
+  ttsEnsureMic();
   if(_aiSR){                                   // 正在听 → 停止
     try{_aiSR.stop();}catch(e){}
     return;
@@ -4381,12 +4431,31 @@ async function aiSend(){
   AI_ST.loading=true;
   const th=aiMsg('bot','正在思考…');th.classList.add('think');
   try{
-    const d=await aiCall('/api/ai/chat',{msgs:AI_ST.hist.slice(-12),ctx:{subject:curSubj,unit:curVol,grade:curGrade},persona:aiPersona()});
+    // 云端音色：让服务端在"同一次对话请求"里一并合成语音，省掉一次独立 /api/tts 往返，
+    // 回复文字与播报几乎同时到达 → 消除"回复后出现 2.3 秒静默才播"的观感。
+    const _cfg=ttsCfg();
+    let _wantTts=false,_ttsKey='xiaoxiao';
+    if(_cfg.on && ttsUseCloud(_cfg)){
+      const _v=_cfg.voice||'';
+      if(_v.indexOf('p:')===0){ const _k=_v.slice(2); if(ttsCloudOk(_k)){ _wantTts=true; _ttsKey=_k; } }
+      else { _wantTts=true; } // 自动模式走云端默认女声
+    }
+    const _body={msgs:AI_ST.hist.slice(-12),ctx:{subject:curSubj,unit:curVol,grade:curGrade},persona:aiPersona()};
+    if(_wantTts){ _body.tts=true; _body.tts_voice=_ttsKey; _body.tts_rate=_cfg.rate; _body.tts_pitch=_cfg.pitch; }
+    const d=await aiCall('/api/ai/chat',_body);
     th.textContent=d.reply||'（模型没有返回内容）';th.classList.remove('think');
     AI_ST.hist[AI_ST.loading?AI_ST.hist.length-1:AI_ST.hist.length-1]={role:'assistant',content:d.reply||''};
     if(AI_ST.state){AI_ST.state.used=d.used;AI_ST.state.quota=d.quota;$('ai-quota').textContent=aiQuotaText(AI_ST.state);}
     // AI 回复后语音播报（设置里可开关/选音色/调语速）
-    try{ ttsSpeak(d.reply||''); }catch(e){}
+    if(d.tts_url && _cfg.on && ttsUseCloud(_cfg)){
+      // 服务端已合成好，直接播（仍补成绝对地址，兼容 Pages 等托管）
+      let _u=d.tts_url;
+      if(_u[0]==='/'){ const _b=(API_BASES[API_BASE_IDX]||'').replace(/\/$/,''); if(_b) _u=_b+_u; }
+      const _r=Math.min(2,Math.max(0.5,parseFloat(_cfg.rate)||1)), _p=Math.min(2,Math.max(0,parseFloat(_cfg.pitch)||1));
+      ttsPlayCloud(_u,()=>ttsSpeakLocal(d.reply||'', _r, _p));
+    } else {
+      try{ ttsSpeak(d.reply||''); }catch(e){}
+    }
   }catch(e){
     let tip='';
     if(e.code==='NOBIND') tip='（请点设置绑定你的大模型 Key）';
@@ -4629,7 +4698,7 @@ async function boot(){
   try{ readRemember(); }catch(e){}
   try{ _mcRestore(); }catch(e){}      // 恢复「我的」页本地缓存（刷新页面也能秒开）
   const wxel=$('wxid');if(wxel)wxel.textContent=WX.id;
-  initTheme();
+  initTheme(); ttsInstallGestureUnlock();
   const rf=document.getElementById('hdrRefresh');
   if(rf){
     rf.onclick=()=>{

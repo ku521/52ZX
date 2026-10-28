@@ -3645,6 +3645,81 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---------- 静态文件 ----------
 
+    def _tts_synth_url(self, text, voice, rate, pitch, sc, tts_timeout=30):
+        # 复用的云端 TTS 合成：成功返回音频 URL，任何失败返回 None（不抛异常，调用方自行兜底）
+        text = (text or "").strip()
+        if not text or not voice:
+            return None
+        if len(text) > 1200:
+            text = text[:1200]
+        vm = CLOUD_VOICE_MAP.get(voice)
+        if not vm:
+            return None
+        appid, token, cluster = load_cloud_tts_cfg()
+        if not appid or not token:
+            return None
+        try:
+            rate = min(2.0, max(0.5, float(rate)))
+            pitch = min(2.0, max(0.5, float(pitch)))
+        except Exception:
+            rate, pitch = 1.0, 1.0
+        _h = hashlib.sha1(("%s|%s|%.2f|%.2f" % (text, vm["v"], rate, pitch)).encode("utf-8")).hexdigest()
+        fname = _h + ".mp3"
+        fpath = os.path.join(TTS_CACHE, fname)
+        try:
+            os.makedirs(TTS_CACHE, exist_ok=True)
+        except Exception:
+            pass
+        if os.path.isfile(fpath) and os.path.getsize(fpath) > 0:
+            url = "/api/tts_file/" + fname
+            if sc:
+                url += "?sharecode=" + quote(sc)
+            return url
+        import uuid
+        reqid = uuid.uuid4().hex
+        audio = {
+            "voice_type": vm["v"],
+            "encoding": "mp3",
+            "speed_ratio": round(rate, 2),
+            "volume_ratio": 1.0,
+            "pitch_ratio": round(pitch, 2),
+        }
+        request = {
+            "reqid": reqid,
+            "text": text,
+            "text_type": "plain",
+            "operation": "query",
+        }
+        if vm.get("d"):
+            request["explicit_dialect"] = vm["d"]
+        else:
+            request["with_frontend"] = 1
+            request["frontend_type"] = "unitTson"
+        payload = {
+            "app": {"appid": appid, "token": token, "cluster": cluster},
+            "user": {"uid": "52zx_user"},
+            "audio": audio,
+            "request": request,
+        }
+        try:
+            url = "https://openspeech.bytedance.com/api/v1/tts"
+            req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), method="POST")
+            req.add_header("Authorization", "Bearer;%s" % token)
+            req.add_header("Content-Type", "application/json")
+            with urllib.request.urlopen(req, timeout=tts_timeout) as r:
+                resp = json.loads(r.read().decode("utf-8", "ignore"))
+            if resp.get("code") not in (1000, 3000) or not resp.get("data"):
+                return None
+            audio_bin = base64.b64decode(resp["data"])
+            with open(fpath, "wb") as f:
+                f.write(audio_bin)
+            out = "/api/tts_file/" + fname
+            if sc:
+                out += "?sharecode=" + quote(sc)
+            return out
+        except Exception:
+            return None
+
     def api_tts(self):
         qs = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
         sc = (qs.get("sharecode") or [""])[0]
@@ -4498,6 +4573,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def api_ai_chat(self):
 
+        sc = (parse_qs(self.path.split("?", 1)[1]).get("sharecode") or [""])[0] if "?" in self.path else ""
+
         uname = self._rec_user()
 
         if not uname:
@@ -4694,7 +4771,23 @@ class Handler(BaseHTTPRequestHandler):
 
                (json.dumps({"n": used + 1}), "text"), (nt, "text")])
 
-        self.j(200, {"ok": True, "reply": reply, "used": used + 1, "quota": quota})
+        # —— 可选：在同一次对话请求里直接合成语音，省掉前端再发一次 /api/tts 的往返 ——
+        # 仅当用户端请求 tts 且音色是云端支持的种类时才合成；任何失败都返回 None，
+        # 不影响主流程（前端会回退到本地语音或自己的 /api/tts）。
+        _tts_url = None
+        try:
+            if d.get("tts"):
+                _v = str(d.get("tts_voice") or "").strip()
+                if _v in CLOUD_VOICE_MAP:
+                    _r = min(2.0, max(0.5, float(d.get("tts_rate") or 1.0)))
+                    _p = min(2.0, max(0.5, float(d.get("tts_pitch") or 1.0)))
+                    _tts_url = self._tts_synth_url(reply, _v, _r, _p, sc, 10)
+        except Exception:
+            _tts_url = None
+        if _tts_url:
+            self.j(200, {"ok": True, "reply": reply, "used": used + 1, "quota": quota, "tts_url": _tts_url})
+        else:
+            self.j(200, {"ok": True, "reply": reply, "used": used + 1, "quota": quota})
 
 
 
