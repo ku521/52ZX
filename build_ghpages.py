@@ -226,14 +226,25 @@ def publish_via_api(outdir):
         print("  (Pages 源设置跳过，可能已是 gh-pages)")
     api("pages/builds", "POST", {})
     print("  已触发 Pages 重建，等待完成…")
-    for i in range(24):
+    want = commit["sha"][:8]
+    done = False
+    for i in range(40):
         time.sleep(10)
         b = api("pages/builds/latest")
         st, cm = b.get("status"), (b.get("commit") or "")[:8]
         print("    [%3ds] %s %s" % ((i + 1) * 10, st, cm))
-        if st == "built":
+        # 必须同时满足「状态 built」且「构建的正是本次发布的 commit」——
+        # 只看 status 会把"上一次构建的 built"当成本次成功，误报完成而线上仍是旧内容。
+        if st == "built" and cm == want:
+            done = True
             break
-    print("  ✓ gh-pages 已发布并构建完成")
+        if st == "errored":
+            raise SystemExit("Pages 构建失败，请到仓库 Settings → Pages 查看构建日志")
+    if done:
+        print("  ✓ gh-pages 已发布并构建完成")
+    else:
+        print("  ! Pages 尚未构建完成（可能仍在排队或已超时），请稍后复核线上内容：")
+        print("    curl -s https://ku521.github.io/52ZX/ | grep -c 'li-user-check'")
 
 
 if __name__ == "__main__":
