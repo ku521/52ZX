@@ -451,6 +451,18 @@ linear-gradient(155deg,#0a1330 0%,#111f47 48%,#0a1128 100%)}
 .slow-tip .st-btn.hide{display:none !important}
 .slow-tip button.st-reload{border:none;cursor:pointer;font-family:inherit}
 .slow-tip .st-x{background:none;border:none;font-size:20px;line-height:1;color:#9a7b00;cursor:pointer;padding:0 2px}
+/* 线路切换弹窗：替代「静默自动跳转云端」，改为弹出提示 + 用户手动点「切换」按钮 */
+#lineSwitchModal{z-index:130;background:rgba(18,28,52,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+#lineSwitchModal .lsm-card{background:#fff;color:#22324a;border-radius:18px;padding:22px 22px 18px;max-width:360px;width:90vw;box-shadow:0 24px 60px rgba(3,9,28,.45);text-align:center}
+body.dark #lineSwitchModal .lsm-card{background:#1b2742;color:#dbe6ff}
+#lineSwitchModal .lsm-title{font-size:18px;font-weight:800;margin-bottom:8px}
+#lineSwitchModal .lsm-txt{font-size:13.5px;line-height:1.7;color:#4a5b72;margin-bottom:16px}
+body.dark #lineSwitchModal .lsm-txt{color:#aebde0}
+#lineSwitchModal .lsm-actions{display:flex;flex-direction:column;gap:9px}
+#lineSwitchModal .lsm-go{background:linear-gradient(135deg,#4d7dff,#7a5cff);color:#fff;border:none;border-radius:11px;padding:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:filter .15s}
+#lineSwitchModal .lsm-go:hover{filter:brightness(1.06)}
+#lineSwitchModal .lsm-stay{background:#eef2f8;color:#33475b;border:1px solid #dbe3ee;border-radius:11px;padding:11px;font-size:13.5px;cursor:pointer;font-family:inherit;transition:background .15s}
+body.dark #lineSwitchModal .lsm-stay{background:#26345a;color:#cdddff;border-color:#3c4f74}
 .wm{position:fixed;inset:0;pointer-events:none;z-index:60;opacity:.05;font-size:13px;line-height:2;color:#000;transform:rotate(-18deg);overflow:hidden;font-family:sans-serif;white-space:pre}
 .hint.pay{background:#eafaf0;border-color:#b8e6c8;color:#1c6b32}
 header .u{font-size:12px;opacity:.95;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
@@ -1184,6 +1196,17 @@ body.dark .ps-sub{color:#a9b7cd}
   <a class="st-btn" id="slowSwitch" href="#" target="_blank" rel="noopener">点此打开云端版 →</a>
   <button class="st-btn st-reload hide" id="slowReload" type="button">重新加载资料</button>
   <button class="st-x" id="slowClose" title="关闭">×</button>
+</div>
+
+<div class="overlay" id="lineSwitchModal" style="display:none">
+  <div class="lsm-card">
+    <div class="lsm-title">☁️ 云端版可用</div>
+    <div class="lsm-txt"></div>
+    <div class="lsm-actions">
+      <button class="lsm-go" type="button">切换到云端版 →</button>
+      <button class="lsm-stay" type="button">留在本页（离线版）</button>
+    </div>
+  </div>
 </div>
 
 <button id="aiFab" title="AI 答疑老师">🤖</button>
@@ -2382,9 +2405,8 @@ function renderMineRank(rk, fr, ch){
 
 // ===== 分享 · 邀请注册（「我的」页）=====
 function mineInviteLink(){
-  const base=(API_BASES[API_BASE_IDX]||'').replace(/\/$/,'');
-  const origin=base||location.origin;
-  return origin+'/?inv='+encodeURIComponent(CUR_USER||'');
+  // 必须保留平台代理要求的 sharecode，否则别人打开会被 403「链接不完整」
+  return shareBase()+'&inv='+encodeURIComponent(CUR_USER||'');
 }
 function copyMineInvite(){
   const le=$('mine-inv-link'); if(!le) return;
@@ -3335,8 +3357,8 @@ const SWITCH_URL = 'https://52zx.app.workbuddy.host/?sharecode=' + (API_SHARE ||
 function isCloudHost(){ try{ return /app\.workbuddy\.host/i.test(location.host); }catch(e){ return false; } }
 
 // ===== GitHub Pages 静态托管模式（由 build_ghpages.py 注入 window.__GH_STATIC__ 启用）=====
-// 定位：GitHub 侧既是「云端不可用时的托底」，又「速度优先」自动切到云端。
-//   云端可达   → 顶部提示 + 1.6 秒后自动跳转云端（可点「留在本页」改用离线版）
+// 定位：GitHub 侧是「云端不可用时的托底」，并提示可切换到云端版（不自动跳走）。
+//   云端可达   → 弹出提示 + 「切换到云端版」按钮，由用户手动确认（不再静默自动跳转）
 //   云端不可达 → 加载同目录 content.json（免费版：无答案/解析）进入离线浏览，资料与做题照常可用
 // 重要：静态站只托管「免费版内容」；完整答案/解析与付费下载包只在云端，付费资产不外泄。
 const GH_STATIC = !!(window.__GH_STATIC__);
@@ -3384,6 +3406,16 @@ function shareUrl(url){
   if(!s) return url;
   return url+(url.indexOf('?')>=0?'&':'?')+'sharecode='+encodeURIComponent(s);
 }
+// 生成「可分享」基础链接：必须保留平台代理（app.workbuddy.host）要求的 sharecode，
+// 否则在他处打开首页会被 403「链接不完整」。URL 里没有 sharecode 时（当前页靠 __wb_rsc
+// Cookie 免带的情况），回退到内嵌的 API_SHARE，保证生成的邀请链接自带分享码、任意电脑都能开。
+// 注：仅保留 sharecode；inv 由调用方按当前登录用户重新拼接。
+function shareBase(){
+  const u=new URL(location.href);
+  let sc=u.searchParams.get('sharecode')||'';
+  if(!sc) sc=API_SHARE||'';
+  return u.origin+'/?sharecode='+encodeURIComponent(sc);
+}
 function showSlowTip(msg){ const t=document.getElementById('slowTip'); if(!t) return;
   if(msg) t.querySelector('.st-txt').innerHTML=msg;
   // 已在云端域名下时，「打开云端版」指向的就是当前页 → 改为「重新加载资料」，避免误导
@@ -3393,8 +3425,22 @@ function showSlowTip(msg){ const t=document.getElementById('slowTip'); if(!t) re
   if(rb) rb.classList.toggle('hide',!cloud);
   t.classList.remove('hide'); }
 function hideSlowTip(){ const t=document.getElementById('slowTip'); if(t) t.classList.add('hide'); }
+// 统一的「切换线路/云端」弹窗：替代原先静默的自动跳转（location.replace）。
+// 仅弹出提示 + 一个「切换」按钮，由用户手动确认，避免在他处打开时被动跳走。
+// opts: {msg, switchText, switchUrl, stayText, onStay}
+function offerLineSwitch(o){
+  o=o||{};
+  const m=document.getElementById('lineSwitchModal');
+  if(!m) return;
+  const tx=m.querySelector('.lsm-txt'); if(tx) tx.innerHTML=o.msg||'检测到可用线路，是否切换？';
+  const sb=m.querySelector('.lsm-go');
+  if(sb){ sb.textContent=o.switchText||'切换线路 →'; sb.onclick=()=>{ try{ window.location.href=o.switchUrl||GH_CLOUD_URL; }catch(e){} }; }
+  const xb=m.querySelector('.lsm-stay');
+  if(xb){ xb.textContent=o.stayText||'留在本页'; xb.onclick=()=>{ overlay('lineSwitchModal',false); if(o.onStay) o.onStay(); }; }
+  overlay('lineSwitchModal',true);
+}
 let _slowTimer=null, _backendBusy=false, _redirectTimer=null;
-function startSlowWatch(){ _backendBusy=true; clearTimeout(_slowTimer); clearTimeout(_redirectTimer); _slowTimer=setTimeout(()=>{ if(_backendBusy && MODE==='server' && !isCloudHost()){ showSlowTip('当前访问较慢，即将自动切换到 <b>云端直链</b>…'); _redirectTimer=setTimeout(()=>{ if(_backendBusy && MODE==='server' && !isCloudHost()){ try{window.location.replace(SWITCH_URL);}catch(e){} } }, 3500); } }, 5000); }
+function startSlowWatch(){ _backendBusy=true; clearTimeout(_slowTimer); clearTimeout(_redirectTimer); _slowTimer=setTimeout(()=>{ if(_backendBusy && MODE==='server' && !isCloudHost()){ offerLineSwitch({ msg:'当前访问较慢，可改用 <b>云端直链</b> 获得更快体验。是否切换？', switchText:'切换到云端直链 →', switchUrl:SWITCH_URL, stayText:'留在本页', onStay:()=>{} }); } }, 5000); }
 function stopSlowWatch(){ _backendBusy=false; clearTimeout(_slowTimer); clearTimeout(_redirectTimer); hideSlowTip(); }
 const API = {
   async call(path, body){
@@ -4522,11 +4568,13 @@ async function boot(){
   if(GH_STATIC){
     const up=await ghProbeCloud();
     if(up){
-      showSlowTip('☁️ 云端可用，正在切换到速度更快的 <b>云端版</b>（会员功能完整）…');
-      const sb=document.getElementById('slowSwitch'); if(sb){ sb.textContent='立即进入云端 →'; sb.href=GH_CLOUD_URL; sb.classList.remove('hide'); }
-      const sr=document.getElementById('slowReload'); if(sr){ sr.textContent='留在本页（离线版）'; sr.classList.remove('hide');
-        sr.onclick=()=>{ _ghStay=true; ghStartOffline(); }; }
-      if(!_ghStay) _ghAutoRedirect=setTimeout(()=>{ try{location.replace(GH_CLOUD_URL);}catch(e){} },1600);
+      offerLineSwitch({
+        msg:'☁️ 检测到 <b>云端版</b> 可用，功能更完整（含答案/解析/付费下载）。<br>是否切换到云端版？',
+        switchText:'切换到云端版 →',
+        switchUrl:GH_CLOUD_URL,
+        stayText:'留在本页（离线版）',
+        onStay:()=>{ _ghStay=true; ghStartOffline(); }
+      });
       return;
     }
     await ghStartOffline();
@@ -4538,7 +4586,7 @@ async function boot(){
 
   if(MODE==='offline'){
     _withOfflineGuard(_applyMemberOffline); // 离线个人版不设限（仅作用于免费内容）
-    if(!DATA){ overlay('loginOverlay',true); if(!isCloudHost()){ showSlowTip('无法连接服务端，正在为你切换到 <b>云端直链</b>…'); setTimeout(()=>{ try{window.location.replace(SWITCH_URL);}catch(e){} }, 2500); } else { showDone('此文件是<b>学生版</b>，需配合服务端使用。<br>个人自用请打开“离线个人版”。'); } return; }
+    if(!DATA){ overlay('loginOverlay',true); if(!isCloudHost()){ offerLineSwitch({ msg:'无法连接服务端，可切换到 <b>云端直链</b> 继续使用。是否切换？', switchText:'切换到云端直链 →', switchUrl:SWITCH_URL, stayText:'留在本页（离线版）', onStay:()=>{} }); } else { showDone('此文件是<b>学生版</b>，需配合服务端使用。<br>个人自用请打开“离线个人版”。'); } return; }
     CUR_USER='本地'; enterApp(); return;
   }
 
@@ -4872,9 +4920,8 @@ function openDlOverlay(){
   renderDlInvite();
 }
 function renderDlInvite(){
-  const base=(API_BASES[API_BASE_IDX]||'').replace(/\/$/,'');
-  const origin=base||location.origin;
-  const link=origin+'/?inv='+encodeURIComponent(CUR_USER||'');
+  // 必须保留平台代理要求的 sharecode，否则别人打开会被 403「链接不完整」
+  const link=shareBase()+'&inv='+encodeURIComponent(CUR_USER||'');
   const le=$('dl-inv-link'); if(le) le.textContent=link;
   if(MODE!=='server'||!CUR_USER) return;
   API.call('/api/invite/stat').then(j=>{

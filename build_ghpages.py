@@ -4,8 +4,8 @@
 设计要点（安全第一）：
   · 只托管「免费版内容」——复用服务端 strip_free_content 规则，剥离 answer / expl / points；
     完整答案、解析、赋分要点、付费下载包一律不进 Pages 分支，付费资产不外泄。
-  · 静态站内含 __GH_STATIC__ 标志：启动先探活云端，可用则 1.6s 自动跳转（速度优先），
-    不可用则读同目录 content.json 进离线浏览（托底），资料浏览与做题照常可用。
+  · 静态站内含 __GH_STATIC__ 标志：启动先探活云端，可用则弹出「切换到云端版」提示（由用户手动确认，
+    不自动跳走），不可用则读同目录 content.json 进离线浏览（托底），资料浏览与做题照常可用。
 
 用法：
     python build_ghpages.py              # 只生成 gh-pages/ 目录
@@ -141,7 +141,7 @@ def main():
                 ["git", "-C", BASE, "add", "-f", "gh-pages"],
                 ["git", "-C", BASE, "commit", "-q", "-m",
                  "build: GitHub Pages 静态站（免费版内容：题干/卡片/导图，无答案解析与付费下载包）\n\n"
-                 "- 云端可用时 1.6s 自动跳转云端（速度优先），可选择留在本页\n"
+                 "- 云端可用时弹出「切换到云端版」提示（用户手动确认，不自动跳走），也可留在本页\n"
                  "- 云端不可用时读同目录 content.json 进离线浏览，作为托底\n"
                  "- 内容已剥离 answer/expl/points，付费资产不外泄"],
                 ["git", "-C", BASE, "push", "-f", "origin", GH_PAGES_BRANCH],
@@ -201,7 +201,7 @@ def publish_via_api(outdir):
     main_sha = api("git/ref/heads/main")["object"]["sha"]
     commit = api("git/commits", "POST", {
         "message": "build: GitHub Pages 静态站（免费版内容）\n\n"
-                   "- 云端可用时 1.6s 自动跳转云端（速度优先），可选择留在本页\n"
+                   "- 云端可用时弹出「切换到云端版」提示（用户手动确认，不自动跳走），也可留在本页\n"
                    "- 云端不可用时读同目录 content.json 进离线浏览，作为托底\n"
                    "- ?gh=offline 可强制离线版\n"
                    "- 内容已剥离 answer/expl/points，付费下载包不随站发布",
