@@ -2416,7 +2416,8 @@ def _cors_origin_ok(origin):
         return True
 
     if h.endswith(".workbuddy.host"):       # 本站各环境的同源/子域
-
+        return True
+    if h == "ku521.github.io":              # GitHub Pages 静态前端：与云端版共用同一 server.py + 同一 Turso，仅前端托管位置不同
         return True
 
     return False

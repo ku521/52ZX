@@ -3348,7 +3348,7 @@ const WX = { id: '鑫辰', name: '鑫辰（广东·佛山）' };
 // 资料内容本身也不内嵌在此文件，必须「登录 + 审核通过 + 已开通会员」后
 // 由服务端 /api/content 下发。
 let MODE = 'offline';
-const API_BASES = "".split('|').map(s=>s.trim()).filter(Boolean);
+const API_BASES = (window.__API_BASES__ ? window.__API_BASES__ : "".split('|')).map(s=>s.trim()).filter(Boolean);
 let API_BASE_IDX = 0;
 try{ const bi=parseInt(localStorage.getItem('zb_base')||'0',10); if(bi>=0&&bi<API_BASES.length) API_BASE_IDX=bi; }catch(e){}
 const API_SHARE = "E2G3MZIBK2";
@@ -3357,10 +3357,11 @@ const SWITCH_URL = 'https://52zx.app.workbuddy.host/?sharecode=' + (API_SHARE ||
 function isCloudHost(){ try{ return /app\.workbuddy\.host/i.test(location.host); }catch(e){ return false; } }
 
 // ===== GitHub Pages 静态托管模式（由 build_ghpages.py 注入 window.__GH_STATIC__ 启用）=====
-// 定位：GitHub 侧是「云端不可用时的托底」，并提示可切换到云端版（不自动跳走）。
-//   云端可达   → 弹出提示 + 「切换到云端版」按钮，由用户手动确认（不再静默自动跳转）
-//   云端不可达 → 加载同目录 content.json（免费版：无答案/解析）进入离线浏览，资料与做题照常可用
-// 重要：静态站只托管「免费版内容」；完整答案/解析与付费下载包只在云端，付费资产不外泄。
+// 定位：GitHub Pages 与 WorkBuddy 版是「同一套前端代码 + 同一后端 server.py + 同一 Turso 数据库」的两个托管地址，
+//       只是静态资源托管位置不同。两者共用一个云端 API；GitHub Pages 不再做「探测云端→自动/手动切换/离线」，
+//       而是直接以云端为数据源，行为完全等同云端版（20s 超时容忍短暂网络抖动，不会因延迟误判离线）。
+//       仅当云端确实不可达时，才提示可打开完整云端版（WorkBuddy 托管）作为兜底。
+// 安全：静态站只托管「免费版内容」兜底缓存；完整答案/解析与付费下载包始终由服务端按会员身份下发，付费资产不外泄。
 const GH_STATIC = !!(window.__GH_STATIC__);
 const GH_CLOUD_URL = window.__GH_CLOUD__ || ('https://52zx.app.workbuddy.host/?sharecode=' + (API_SHARE || 'E2G3MZIBK2'));
 let _ghAutoRedirect=null, _ghStay=false;
@@ -3440,7 +3441,7 @@ function offerLineSwitch(o){
   overlay('lineSwitchModal',true);
 }
 let _slowTimer=null, _backendBusy=false, _redirectTimer=null;
-function startSlowWatch(){ _backendBusy=true; clearTimeout(_slowTimer); clearTimeout(_redirectTimer); _slowTimer=setTimeout(()=>{ if(_backendBusy && MODE==='server' && !isCloudHost()){ offerLineSwitch({ msg:'当前访问较慢，可改用 <b>云端直链</b> 获得更快体验。是否切换？', switchText:'切换到云端直链 →', switchUrl:SWITCH_URL, stayText:'留在本页', onStay:()=>{} }); } }, 5000); }
+function startSlowWatch(){ _backendBusy=true; clearTimeout(_slowTimer); clearTimeout(_redirectTimer); _slowTimer=setTimeout(()=>{ if(_backendBusy && MODE==='server' && !isCloudHost() && !GH_STATIC){ offerLineSwitch({ msg:'当前访问较慢，可改用 <b>云端直链</b> 获得更快体验。是否切换？', switchText:'切换到云端直链 →', switchUrl:SWITCH_URL, stayText:'留在本页', onStay:()=>{} }); } }, 5000); }
 function stopSlowWatch(){ _backendBusy=false; clearTimeout(_slowTimer); clearTimeout(_redirectTimer); hideSlowTip(); }
 const API = {
   async call(path, body){
@@ -4564,23 +4565,11 @@ async function boot(){
   }
   syncSticky();
   startSlowWatch();
-  // —— GitHub Pages 静态托管分支：云端优先（速度最快），云端不可用则本地离线托底 ——
-  if(GH_STATIC){
-    const up=await ghProbeCloud();
-    if(up){
-      offerLineSwitch({
-        msg:'☁️ 检测到 <b>云端版</b> 可用，功能更完整（含答案/解析/付费下载）。<br>是否切换到云端版？',
-        switchText:'切换到云端版 →',
-        switchUrl:GH_CLOUD_URL,
-        stayText:'留在本页（离线版）',
-        onStay:()=>{ _ghStay=true; ghStartOffline(); }
-      });
-      return;
-    }
-    await ghStartOffline();
-    return;
-  }
-  // 能连上服务端 → 登录免费使用；连不上 → 视为个人离线版（无需登录）
+  // GitHub Pages 与 WorkBuddy 版是「同一套前端 + 同一后端(server.py) + 同一 Turso 数据库」的两个托管地址。
+  // 不再做「探测云端 → 弹出切换 / 自动离线」：GitHub Pages 直接以云端 API 为数据源，
+  // 行为完全等同云端版（20s 超时容忍短暂网络抖动，不会因延迟误判离线）。
+  // 仅当云端确实不可达时，才提示可打开完整云端版（WorkBuddy 托管）作为兜底。
+  // 能连上服务端 → 登录免费使用；连不上 → 提示切换 / 重试
   try{ await API.call('/api/health'); MODE='server'; }catch(e){ MODE='offline'; }
   updateLineLabel();
 

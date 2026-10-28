@@ -4,8 +4,10 @@
 设计要点（安全第一）：
   · 只托管「免费版内容」——复用服务端 strip_free_content 规则，剥离 answer / expl / points；
     完整答案、解析、赋分要点、付费下载包一律不进 Pages 分支，付费资产不外泄。
-  · 静态站内含 __GH_STATIC__ 标志：启动先探活云端，可用则弹出「切换到云端版」提示（由用户手动确认，
-    不自动跳走），不可用则读同目录 content.json 进离线浏览（托底），资料浏览与做题照常可用。
+  · 静态站与 WorkBuddy 版是「同一套前端 + 同一后端 server.py + 同一 Turso 数据库」的两个托管地址。
+    注入 __GH_STATIC__ / __GH_CLOUD__ / __API_BASES__：GitHub Pages 前端直接以云端 API 为数据源，
+    行为完全等同云端版（20s 超时容忍短暂网络抖动，不再因延迟误判离线）。
+  · 同目录 content.json 仅作「云端确实不可达」时的兜底缓存；正常情况一律走云端。
 
 用法：
     python build_ghpages.py              # 只生成 gh-pages/ 目录
@@ -54,10 +56,11 @@ def strip_free(data):
 
 
 def build_index(src, dst):
-    """注入静态模式标志：__GH_STATIC__ / __GH_CLOUD__"""
+    """注入静态模式标志：__GH_STATIC__ / __GH_CLOUD__ / __API_BASES__（GitHub Pages 前端以云端 API 为数据源）"""
     s = open(src, encoding="utf-8").read()
     inject = ("<script>window.__GH_STATIC__=true;"
-              "window.__GH_CLOUD__=%s;</script>\n" % json.dumps(CLOUD))
+              "window.__GH_CLOUD__=%s;"
+              "window.__API_BASES__=[\"https://52zx.app.workbuddy.host\"];</script>\n" % json.dumps(CLOUD))
     # 插到第一个 <script> 之前，保证主脚本执行前标志已就位
     i = s.find("<script")
     if i < 0:
@@ -140,9 +143,9 @@ def main():
                 ["git", "-C", BASE, "checkout", "-B", GH_PAGES_BRANCH],
                 ["git", "-C", BASE, "add", "-f", "gh-pages"],
                 ["git", "-C", BASE, "commit", "-q", "-m",
-                 "build: GitHub Pages 静态站（免费版内容：题干/卡片/导图，无答案解析与付费下载包）\n\n"
-                 "- 云端可用时弹出「切换到云端版」提示（用户手动确认，不自动跳走），也可留在本页\n"
-                 "- 云端不可用时读同目录 content.json 进离线浏览，作为托底\n"
+                 "build: GitHub Pages 静态站（与云端版共用同一 server.py + Turso，直接以云端 API 为数据源）\n\n"
+                 "- GitHub Pages 即前端托管在 github.io 的另一地址，行为等同云端版，不再自动/手动切换或离线\n"
+                 "- 20s 超时容忍网络抖动，不因短暂延迟误判离线；仅云端确实不可达时以 content.json 兜底\n"
                  "- 内容已剥离 answer/expl/points，付费资产不外泄"],
                 ["git", "-C", BASE, "push", "-f", "origin", GH_PAGES_BRANCH],
                 ["git", "-C", BASE, "checkout", "main"],
@@ -200,10 +203,9 @@ def publish_via_api(outdir):
     tree = api("git/trees", "POST", {"base_tree": None, "tree": entries})
     main_sha = api("git/ref/heads/main")["object"]["sha"]
     commit = api("git/commits", "POST", {
-        "message": "build: GitHub Pages 静态站（免费版内容）\n\n"
-                   "- 云端可用时弹出「切换到云端版」提示（用户手动确认，不自动跳走），也可留在本页\n"
-                   "- 云端不可用时读同目录 content.json 进离线浏览，作为托底\n"
-                   "- ?gh=offline 可强制离线版\n"
+        "message": "build: GitHub Pages 静态站（与云端版共用同一后端 + 数据库，直接连云端 API）\n\n"
+                   "- GitHub Pages 是前端托管在 github.io 的另一地址，行为等同云端版，不再切换/离线\n"
+                   "- 20s 超时容忍网络抖动，仅云端确实不可达时以 content.json 兜底\n"
                    "- 内容已剥离 answer/expl/points，付费下载包不随站发布",
         "tree": tree["sha"], "parents": [main_sha]})
     print("  commit %s" % commit["sha"][:10])
