@@ -3827,7 +3827,9 @@ function ttsUseCloud(cfg){
   }
   const key=v.slice(2);
   if(!ttsCloudOk(key)) return false;    // 云端不支持该音色 → 本地 / 设备默认音接替
-  return !ttsPresetHasLocal(key);
+  // 选定的是云端音色：优先走云端 TTS（豆包音质远好于本机 SAPI 机械音，且手机也能用）。
+  // 云端不可用 / 播放被拦时，ttsPlayCloud 会自动回退本机语音，不会静默失效。
+  return true;
 }
 // 音频解锁：必须在"用户手势"内调用一次。
 // 根因：AI 回复是异步返回的，此时 play() 已脱离用户手势上下文，iOS Safari / 部分安卓浏览器
@@ -3885,7 +3887,16 @@ function ttsSpeak(text){
     // 自动模式走云端时，用默认推荐女声
     const key=(cfg.voice||'').indexOf('p:')===0 ? cfg.voice.slice(2) : 'xiaoxiao';
     API.call('/api/tts',{text:t, voice:key, rate:rate, pitch:pitch})
-      .then(j=>{ if(j && j.ok && j.url) ttsPlayCloud(j.url,()=>ttsSpeakLocal(t, rate, pitch)); else ttsSpeakLocal(t, rate, pitch); })
+      .then(j=>{
+        if(j && j.ok && j.url){
+          // 云端返回的音频地址是相对路径（/api/tts_file/...）。在 GitHub Pages 等非云主机站点，
+          // 直接 new Audio(相对路径) 会解析到 Pages 域名而 404 → 静默回退本机机械音（婷婷）。
+          // 统一补成当前 API 基址的绝对地址，确保云端语音在任意托管站点都能播放。
+          let u=j.url;
+          if(u[0]==='/'){ const _b=(API_BASES[API_BASE_IDX]||'').replace(/\/$/,''); if(_b) u=_b+u; }
+          ttsPlayCloud(u,()=>ttsSpeakLocal(t, rate, pitch));
+        } else ttsSpeakLocal(t, rate, pitch);
+      })
       .catch(()=>{ ttsSpeakLocal(t, rate, pitch); });
     return;
   }
@@ -4085,7 +4096,7 @@ async function aiLoadState(){
   if(s.bound){
     st.style.display='none';cw.style.display='flex';
     if(!AI_ST.hist.length){
-      aiMsg('bot','你好 '+ (CUR_USER||'') +'！我是你的政史地生答疑老师 📖\n当前正在学：'+curGrade+'·'+curSubj+'·'+dU(curVol)+'\n可以直接问我知识点、大题答法、背诵技巧。');
+      aiMsg('bot','你好 '+ (CUR_USER||'') +'！我是你的'+((AI_TITLES&&AI_TITLES.ai)||'答疑老师')+' 📖\n当前正在学：'+curGrade+'·'+curSubj+'·'+dU(curVol)+'\n可以直接问我知识点、大题答法、背诵技巧。');
     }
   }else{
     cw.style.display='none';st.style.display='flex';renderAiSetup();

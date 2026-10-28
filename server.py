@@ -4575,8 +4575,8 @@ class Handler(BaseHTTPRequestHandler):
         grade = str(ctx.get("grade") or "")[:6]
 
         # —— 角色设定（前端可自定义）：人设提示词可改，格式与安全要求固定追加、不被覆盖 ——
-        persona = b.get("persona") if isinstance(b.get("persona"), dict) else {}
-        p_prompt = str(persona.get("prompt") or "").strip()[:2000]
+        # 角色设定来自前端每次请求携带的 persona（本机保存、随对话上传），不是服务端绑定记录 b
+        persona = d.get("persona") if isinstance(d.get("persona"), dict) else {}
         p_ai = str(persona.get("aiTitle") or "").strip()[:30]
         p_user = str(persona.get("userTitle") or "").strip()[:30]
         try:
