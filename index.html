@@ -28,7 +28,8 @@ if ('serviceWorker' in navigator) {
 --acc:#3b6fe0;--green:#2e7d32;--red:#e53935;--blue:#1565c0}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
-font-size:16px;line-height:1.6;max-width:var(--pagew);margin:0 auto;padding-bottom:60px}
+overflow-x:hidden;   /* 防止长英文串/URL 撑宽页面，把导航栏两端推出可视区 */
+font-size:16px;line-height:1.6;max-width:var(--pagew);margin:0 auto;padding-bottom:96px}
 /* 大屏自适应：--pagew 统一约束正文、顶栏内容、顶部科目栏与底部导航，保证四者同宽 */
 :root{--pagew:900px}
 @media(min-width:1000px){:root{--pagew:1100px}}
@@ -60,7 +61,7 @@ header .htxt{min-width:0;flex:1;display:flex;flex-direction:column;justify-conte
 .tabs{display:flex;gap:6px;padding:8px 12px;flex-wrap:wrap}
 .tabs button{padding:7px 11px;border:1px solid var(--line);border-radius:18px;background:#fff;font-size:13.5px;cursor:pointer}
 .tabs button.on{background:#eaf0fb;color:var(--acc);border-color:var(--acc)}
-.page{padding:12px 14px 90px;display:none}.page.on{display:block}
+.page{padding:12px 14px 122px;display:none}.page.on{display:block}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
 .card h3{margin:0 0 8px;font-size:16px}
 .mm{border:1px solid var(--line);border-radius:12px;padding:8px;background:#fff;overflow-x:auto}
@@ -225,7 +226,7 @@ body.dark .lk-ts{color:#a98888}
 .les-ov{position:fixed;inset:0;z-index:60;display:none;align-items:flex-end;justify-content:center}
 .les-ov.on{display:flex}
 .les-mask{position:absolute;inset:0;background:rgba(10,18,35,.5);backdrop-filter:blur(2px)}
-.les-panel{position:relative;width:100%;max-width:var(--pagew);max-height:88vh;overflow-y:auto;background:var(--bg);border-radius:18px 18px 0 0;padding:14px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(10,20,45,.35);animation:lesUp .28s cubic-bezier(.2,.7,.3,1) both}
+.les-panel{position:relative;width:100%;max-width:var(--pagew);max-height:88vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:var(--bg);border-radius:18px 18px 0 0;padding:14px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(10,20,45,.35);animation:lesUp .28s cubic-bezier(.2,.7,.3,1) both}
 @keyframes lesUp{from{transform:translateY(44px);opacity:.55}to{transform:translateY(0);opacity:1}}
 .les-ph{display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;background:var(--bg);padding:4px 0 10px;z-index:2;border-bottom:1px solid var(--line);margin-bottom:10px}
 .les-ph b{font-size:18px;color:#16213a}
@@ -271,9 +272,14 @@ body.dark .les-detail ul.lp.warn li{background:#2a1d1d;border-color:#4a2f2f}
 .stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px;margin:10px 0}
 .quit{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin:8px 0;font-size:14px}
 .quit b{color:var(--acc)}
-.nav2{position:fixed;bottom:0;left:0;right:0;max-width:var(--pagew);margin:0 auto;display:flex;background:#fff;border-top:1px solid var(--line);z-index:30}
-.nav2 a{flex:1;text-align:center;padding:8px 0;font-size:12px;color:var(--sub);text-decoration:none;cursor:pointer;position:relative}
-.nav2 a.on{color:var(--acc);font-weight:700}.nav2 a .ic{font-size:19px;display:block}
+.nav2{position:fixed;bottom:0;left:0;right:0;max-width:var(--pagew);margin:0 auto;display:flex;background:#fff;
+  border-top:1px solid var(--line);z-index:30;
+  /* 圆角屏/刘海屏：左右两端与底部做安全区内边距，避免最边上两项的文字被圆角裁掉 */
+  padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);
+  padding-bottom:env(safe-area-inset-bottom)}
+.nav2 a{flex:1;text-align:center;padding:10px 2px 22px;font-size:13px;color:var(--sub);text-decoration:none;cursor:pointer;position:relative;min-width:0;min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.nav2 a .ic{font-size:23px;display:block;line-height:1.25}
+.nav2 a.on{color:var(--acc);font-weight:700}
 /* 底部导航未读数字角标（替代原红框闪烁） */
 .nav2 a .nav-badge{position:absolute;top:1px;left:50%;transform:translateX(9px);background:#e53935;color:#fff;font-size:10px;line-height:1;font-weight:800;min-width:16px;height:16px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 4px;pointer-events:none;box-shadow:0 0 0 2px #fff}
 body.dark .nav2 a .nav-badge{box-shadow:0 0 0 2px #16203a}
@@ -429,6 +435,16 @@ linear-gradient(155deg,#0a1330 0%,#111f47 48%,#0a1128 100%)}
 .inv-tier .bar>i{background:linear-gradient(90deg,#4d7dff,#7a5cff)}
 .inv-tier.ok .bar>i{background:linear-gradient(90deg,#39b96a,#7ee08a)}
 .inv-tier-d{font-size:11.5px;color:rgba(226,235,255,.66);line-height:1.5}
+/* 浅色底版（「我的」页分享区块用）：.inv-tier 原为深色遮罩设计，白字在白底上不可见 */
+.inv-tier-lite{background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin:7px 0}
+.inv-tier-lite .inv-tier-h{color:#1f2733}
+.inv-tier-lite .inv-tier-h b{color:#1565c0}
+.inv-tier-lite .inv-tier-d{color:var(--sub)}
+.inv-tier-lite .bar{background:#e6ebf2;border-radius:99px;overflow:hidden}
+.inv-tier-lite .bar>i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#4d7dff,#7a5cff)}
+.inv-tier-lite.ok{border-color:#a9dcb8;background:#f1fbf4}
+.inv-tier-lite.ok .inv-tier-h b{color:#1a8a4a}
+.inv-tier-lite.ok .bar>i{background:linear-gradient(90deg,#39b96a,#7ee08a)}
 .slow-tip{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:10px;max-width:92vw;background:#fffbe6;border:1px solid #ffe08a;border-radius:12px;padding:9px 12px;box-shadow:0 8px 24px rgba(0,0,0,.16);font-size:13px;color:#6b5300}
 .slow-tip.hide{display:none !important}
 .slow-tip .st-btn{background:#1565c0;color:#fff;border-radius:8px;padding:6px 12px;text-decoration:none;white-space:nowrap;font-weight:600}
@@ -525,29 +541,40 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
 .ben-tbl .no{color:#b3541e;font-weight:700}
 .ben-tbl .vip{color:#1a5fb4;font-weight:600}
 /* ===== AI 助手 ===== */
-#aiFab{position:fixed;right:14px;bottom:76px;z-index:60;width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#1a5fb4,#4a90d9);color:#fff;font-size:24px;box-shadow:0 4px 14px rgba(26,95,180,.35);cursor:pointer;display:flex;align-items:center;justify-content:center}
+#aiFab{position:fixed;right:calc(14px + env(safe-area-inset-right));bottom:calc(104px + env(safe-area-inset-bottom));z-index:60;width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#1a5fb4,#4a90d9);color:#fff;font-size:24px;box-shadow:0 4px 14px rgba(26,95,180,.35);cursor:pointer;display:flex;align-items:center;justify-content:center}
 #aiFab:active{transform:scale(.94)}
-#aiPanel{position:fixed;right:12px;bottom:136px;z-index:70;width:min(92vw,400px);max-height:min(66vh,560px);background:#fff;border:1px solid #cfe3ff;border-radius:14px;box-shadow:0 10px 34px rgba(20,50,100,.22);display:none;flex-direction:column;overflow:hidden}
-#aiPanel .ai-hd{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f2f6fd;border-bottom:1px solid #dbe6f4}
+#aiPanel{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:70;width:min(96vw,1200px);overscroll-behavior:contain;
+  height:calc(100vh - 118px - env(safe-area-inset-bottom));max-height:calc(100vh - 118px - env(safe-area-inset-bottom));
+  background:#fff;border:1px solid #cfe3ff;border-radius:16px;
+  box-shadow:0 10px 34px rgba(20,50,100,.22);display:none;flex-direction:column;overflow:hidden}
+#aiPanel .ai-hd{display:flex;align-items:center;gap:8px;padding:12px 14px;background:#f2f6fd;border-bottom:1px solid #dbe6f4;flex:0 0 auto}
 #aiPanel .ai-hd b{font-size:14px;color:#1a5fb4}
 #aiPanel .ai-hd .qt{font-size:11.5px;color:#5c6878;margin-left:auto}
 #aiPanel .ai-hd .ai-x{border:none;background:none;font-size:18px;color:#5c6878;cursor:pointer;padding:0 4px}
-#aiMsgs{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:#fbfdff}
-.ai-m{max-width:86%;padding:8px 11px;border-radius:12px;font-size:13.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+#aiMsgs{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:14px 18px;display:flex;flex-direction:column;gap:10px;background:#fbfdff}
+.ai-m{max-width:min(78%,920px);padding:10px 13px;border-radius:12px;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
 .ai-m.user{align-self:flex-end;background:#1a5fb4;color:#fff;border-bottom-right-radius:4px}
 .ai-m.bot{align-self:flex-start;background:#eef4fd;color:#1f2c3d;border-bottom-left-radius:4px}
 .ai-m.bot.think{color:#5c6878;font-style:italic}
-#aiForm{display:flex;gap:6px;padding:9px 10px;border-top:1px solid #e3ebf5;background:#fff}
-#aiForm textarea{flex:1;border:1px solid #d7dfea;border-radius:9px;padding:7px 9px;font-size:13.5px;font-family:inherit;resize:none;height:40px;box-sizing:border-box}
-#aiForm .send{flex:0 0 auto;border:none;background:#1a5fb4;color:#fff;border-radius:9px;padding:0 15px;font-size:13.5px;cursor:pointer}
-.ai-setup{padding:12px;display:flex;flex-direction:column;gap:9px;overflow-y:auto}
+.ai-spk{margin-top:7px;border:1px solid #c3d5ef;background:#fff;color:#1a5fb4;border-radius:13px;padding:2px 10px;font-size:12px;cursor:pointer;line-height:1.6}
+.ai-spk:active{background:#e3ecfa}
+#aiForm{display:flex;gap:8px;padding:12px 14px;border-top:1px solid #e3ebf5;background:#fff;align-items:flex-end;flex-wrap:wrap}
+#aiForm textarea{flex:1;border:1px solid #d7dfea;border-radius:9px;padding:9px 11px;font-size:14px;font-family:inherit;resize:vertical;overflow-y:auto;height:62px;min-height:46px;max-height:200px;box-sizing:border-box;line-height:1.6}
+#aiForm .send{flex:0 0 auto;border:none;background:#1a5fb4;color:#fff;border-radius:9px;padding:0 18px;font-size:14px;cursor:pointer;height:46px}
+/* 语音输入按钮：与项目内 Web Speech 录入（背诵/大题）同款体验 */
+#aiForm .mic{flex:0 0 auto;border:1px solid #d7dfea;background:#f2f6fd;color:#1a5fb4;border-radius:9px;width:46px;height:46px;font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#aiForm .mic.on{background:#e53935;color:#fff;border-color:#e53935;animation:aiPulse 1.1s ease-in-out infinite}
+@keyframes aiPulse{0%,100%{box-shadow:0 0 0 0 rgba(229,57,53,.45)}50%{box-shadow:0 0 0 7px rgba(229,57,53,0)}}
+#ai-live{flex:0 0 100%;font-size:12.5px;color:#5c6878;padding:0 2px 2px;display:none}
+#ai-live.on{display:block}
+.ai-setup{padding:12px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .ai-setup label{font-size:12.5px;color:#33475b;display:block;margin-bottom:3px}
 .ai-setup select,.ai-setup input{width:100%;box-sizing:border-box;border:1px solid #d7dfea;border-radius:8px;padding:8px 9px;font-size:13px;font-family:inherit}
 .ai-setup .hint{font-size:11.5px;color:#8a97a6;line-height:1.5}
 .ai-setup .btn{border:none;background:#1a5fb4;color:#fff;border-radius:8px;padding:9px;font-size:13.5px;cursor:pointer}
 .ai-setup .ok{color:#1a8a4a;font-size:12.5px;min-height:16px}
 .ai-setup .err{color:#c0392b;font-size:12.5px;min-height:16px}
-@media(max-width:560px){#aiPanel{right:8px;left:8px;width:auto;bottom:130px}}
+@media(max-width:560px){#aiPanel{left:6px;right:6px;width:auto;transform:none;top:6px;height:calc(100vh - 110px - env(safe-area-inset-bottom));max-height:calc(100vh - 110px - env(safe-area-inset-bottom));border-radius:12px}.ai-m{max-width:92%}}
 /* 会员金色强调 + 主题切换按钮 */
 :root{--gold:#c9962b;--gold2:#e7b94a}
 .btn.vip{background:linear-gradient(135deg,#1a5fb4,#2f7de0)}
@@ -585,6 +612,18 @@ body.dark .skeleton-line{background:linear-gradient(90deg,#1d2a48 25%,#26355a 37
 .ai-help code{background:#e6eefb;padding:1px 5px;border-radius:5px;font-family:Consolas,monospace;font-size:11.5px}
 .ai-help summary{cursor:pointer;font-weight:700;color:#1a5fb4;margin-bottom:4px}
 .ai-setup .row{margin:2px 0}
+.ai-role-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 9px}
+#mine-inv-link{font-size:12.5px}
+/* 邀请状态卡必须盖在登录遮罩之上：访客未登录时也能先看到邀请人的状态 */
+#invCardOverlay{z-index:220}
+.inv-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 10px;font-size:12.5px;text-align:left}
+.ai-role-tabs .rt{border:1px solid #d7dfea;background:#fff;color:#33475b;border-radius:16px;padding:5px 11px;font-size:12.5px;cursor:pointer;line-height:1.5;font-family:inherit}
+.ai-role-tabs .rt.on{background:#1a5fb4;border-color:#1a5fb4;color:#fff;font-weight:600}
+.ai-role-tabs .rt.add{border-style:dashed;color:#8a97a6}
+.ai-setup textarea{width:100%;box-sizing:border-box;border:1px solid #d7dfea;border-radius:8px;padding:8px 9px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.6}
+/* .ai-setup .btn 的特异性高于 .btn.ghost，需单独还原幽灵按钮外观 */
+.ai-setup .btn.ghost{background:#fff;color:var(--sub);border:1px solid var(--line)}
+body.dark .ai-setup .btn.ghost{background:#1b2742;color:#dbe6ff;border-color:#3c4f74}
 .ai-setup .ai-base{margin-top:2px}
 .ai-err{white-space:pre-wrap}
 /* ===== 大题赋分训练（角度树 + 模拟赋分） ===== */
@@ -613,8 +652,14 @@ body.dark .kcard,body.dark .q,body.dark .stat{background:#16203a}
 body.dark .dash-stat,body.dark .dash-bars .db .bar,body.dark .nav-grade .gr{background:#1b2742}
 body.dark .opt{background:#16203a;color:#e6edf7}
 body.dark .ai-setup,.ai-setup input,.ai-setup select,body.dark #aiMsgs,body.dark #aiPanel{background:#16203a;color:#e6edf7}
+body.dark .ai-setup textarea{background:#16203a;color:#e6edf7;border-color:#2c3b57}
+body.dark .ai-role-tabs .rt{background:#1b2742;border-color:#3c4f74;color:#dbe6ff}
+body.dark .ai-role-tabs .rt.on{background:#1a5fb4;border-color:#1a5fb4;color:#fff}
+/* AI 面板打开时锁底层滚动：body 定位固定 + 记住/还原 scrollY，避免两层滚动条互相窜动 */
+body.ai-lock{position:fixed;left:0;right:0;width:100%;overflow:hidden;overscroll-behavior:none}
 body.dark textarea,body.dark input{background:#0e1626;color:#e6edf7;border-color:#27324f}
 body.dark .ai-m.bot{background:#1b2742;color:#dbe6ff}
+body.dark .ai-spk{background:#24324f;border-color:#3c4f74;color:#9ec5ff}
 body.dark .mm,body.dark .mem,body.dark .essay,body.dark .essay .score-panel{background:#16203a}
 body.dark .nav2{background:#16203a;border-top-color:#27324f}
 body.dark .nav2 a{color:#9aa7bd}
@@ -812,6 +857,8 @@ body.dark .ps-sub{color:#a9b7cd}
   <div id="quiz-papers" style="display:none">
     <div class="hint">📝 <b>真题 / 模拟卷</b>：按年份整理的广东新高考Ⅰ卷真题与高考模拟卷。点开即可限时自测，交卷看得分。<br>真题卷为真实考题（答案以教育考试院官方为准，标注「待核验」的题干为联网整理版，如有出入以官方为准）；模拟卷由本站高考题库按考点动态组卷，<b>做不完的题</b>随时自测。</div>
     <div class="paper-wrap" id="papers-list"></div>
+    <!-- 挑战状态提示条：发起成功后显示（告知对手、同题、题量） -->
+    <div id="chal-tip" style="display:none;background:#eaf7ee;border:1px solid #b8e6c8;color:#1c6b32;border-radius:10px;padding:9px 12px;margin:8px 0;font-size:13px;line-height:1.7"></div>
     <div id="paper-do" style="display:none"></div>
   </div>
 </section>
@@ -927,11 +974,27 @@ body.dark .ps-sub{color:#a9b7cd}
     <button class="btn ghost" id="st-clear">清空全部进度</button>
   </div>
 
-  <div class="mine-sec">
-    <h3>⚔️ 刷新挑战 <button class="btn sm ghost" style="float:right;margin-top:-2px" onclick="startChallengePicker()">＋ 发起挑战</button></h3>
-    <div id="mine-challenges"></div>
+  <div class="mine-sec" id="mine-invite-sec">
+    <h3>📤 分享 · 邀请注册</h3>
+    <div class="hint">把链接发给同学，他点开注册就与你建立邀请关系；<b>没开通会员的同学点开链接，也能看到你当前的学习状态</b>。</div>
+    <div style="display:flex;gap:8px;align-items:center;margin:8px 0">
+      <input class="inp" id="mine-inv-link" readonly placeholder="登录后生成邀请链接" style="flex:1 1 auto;min-width:0">
+      <button class="btn sm" id="mine-inv-copy" type="button" style="flex:0 0 auto;width:auto;white-space:nowrap">复制</button>
+    </div>
+    <div class="muted" id="mine-inv-sum" style="font-size:12.5px;line-height:1.7"></div>
+    <div id="mine-inv-tiers"></div>
+    <h4 style="font-size:13.5px;margin:14px 0 6px">📋 邀请记录</h4>
+    <div class="rank-list" id="mine-inv-records"><div class="muted" style="font-size:12.5px">加载中…</div></div>
   </div>
 </section>
+
+<!-- 邀请人公开状态卡（未登录/非会员也能看到） -->
+<div class="overlay" id="invCardOverlay" style="display:none">
+  <div class="ov-box" style="max-width:420px">
+    <div class="ov-msg" id="inv-card-msg"></div>
+    <button class="btn" id="inv-card-close" type="button" onclick="closeInvCard()">知道了</button>
+  </div>
+</div>
 
 <!-- 私信抽屉 -->
 <div class="overlay" id="msgDrawer" style="display:none">
@@ -957,6 +1020,30 @@ body.dark .ps-sub{color:#a9b7cd}
       <button class="msg-x" title="关闭" onclick="closeChallengePicker()">✕</button>
     </div>
     <div style="padding:14px;display:flex;flex-wrap:wrap;gap:8px;max-height:50vh;overflow:auto" id="challengePickerList"></div>
+  </div>
+</div>
+
+<!-- 发起挑战 · 二次确认弹窗（防止误点 / 让用户看清发给谁、做什么题） -->
+<div class="overlay" id="chalConfirm" style="display:none">
+  <div class="msg-card" style="max-width:360px">
+    <div class="msg-head">
+      <div class="msg-who"><b>⚔️ 确认发起挑战</b></div>
+      <button class="msg-x" title="关闭" onclick="closeChalConfirm()">✕</button>
+    </div>
+    <div style="padding:14px">
+      <div style="font-size:14px;line-height:1.7">
+        确定要向 <b id="chalConfirmTo"></b> 发起挑战吗？
+        <div style="margin-top:8px;color:#5c6878;font-size:13px">
+          · 双方将做 <b>同一套题</b>（共 <b id="chalConfirmCount">20</b> 题，题目与顺序完全相同）<br>
+          · 你先作答并交卷，对方应战后也会做同一套题<br>
+          · 双方都交卷后自动比出胜负，结果计入排行榜战绩
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn ghost sm" style="flex:1;margin:0" onclick="closeChalConfirm()">再想想</button>
+        <button class="btn sm" style="flex:1;margin:0" id="chalConfirmOk" onclick="doChalConfirm()">确定发送</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1101,10 +1188,15 @@ body.dark .ps-sub{color:#a9b7cd}
 
 <button id="aiFab" title="AI 答疑老师">🤖</button>
 <div id="aiPanel">
-  <div class="ai-hd"><b>🤖 AI 答疑老师</b><span class="qt" id="ai-quota"></span><button class="ai-x" id="ai-gear" title="重新设置 / 更换服务商 / 换 Key" style="font-size:13px;right:34px">⚙️</button><button class="ai-x" id="ai-close">×</button></div>
+  <div class="ai-hd"><b id="ai-role-badge">🤖 AI 答疑老师</b><span class="qt" id="ai-quota"></span><button class="ai-x" id="ai-gear" title="重新设置 / 更换服务商 / 换 Key" style="font-size:13px;right:34px">⚙️</button><button class="ai-x" id="ai-close">×</button></div>
   <div id="ai-chat-wrap" style="display:none;flex-direction:column;flex:1;min-height:0">
     <div id="aiMsgs"></div>
-    <form id="aiForm"><textarea id="ai-in" placeholder="问点什么，如：氮元素循环怎么答大题？"></textarea><button class="send" type="submit">发送</button></form>
+    <form id="aiForm">
+      <button class="mic" id="ai-mic" type="button" title="语音输入（点击开始/停止）">🎤</button>
+      <textarea id="ai-in" placeholder="问点什么，如：氮元素循环怎么答大题？（也可点 🎤 语音输入）"></textarea>
+      <button class="send" type="submit">发送</button>
+      <div id="ai-live"></div>
+    </form>
   </div>
   <div class="ai-setup" id="ai-setup"></div>
 </div>
@@ -1133,21 +1225,37 @@ function pickGrade(g){
   refreshMember();renderVol();volRefresh();renderDash();
 }
 // 会员档位：'' 未开通 / single 单年级（绑定 member_grade） / all 全三册
-// 会员状态：用闭包变量 + 只读属性保护，禁止 eval('MEMBER={...}') 直接改写。
-// 只能通过 setMember() 更新（数据须来自服务端 /api/me 等可信来源），
-// 从根上堵住"一行给自己开会员"的前端绕过路径。
+// 会员状态：用闭包私有变量 + 只读属性保护，禁止 eval('MEMBER={...}') 直接改写。
+// 2026-10-28 安全加固（针对回归测试发现的 setMember 公开可调用绕过）：
+//   1) MEMBER 仍是 window 只读属性（freeze + defineProperty），无法直接赋值；
+//   2) 真正写入会员状态的入口 _applyMember() 是闭包私有函数，不挂到 window，
+//      外部（控制台 / 注入脚本）拿不到引用，一行 setMember({on:true}) 的绕过被堵死；
+//   3) 即便通过其它路径拿到函数引用，_applyMember 内部强制校验 _MEMBER_GUARD：
+//      该标志只会在"处理服务端 /api/me、/api/bootstrap 真实回执"的同步段内被置位，
+//      攻击者无法伪造调用来源；
+//   4) 离线个人版（云端不可达时加载的本地免费内容）单独走 _applyMemberOffline()，
+//      且仅在合法离线引导流程内生效，同样不暴露给外部。
 let _MEMBER=Object.freeze({on:false,tier:'',grade:'',grades:Object.freeze([])});
-function setMember(d){
-  if(!d||typeof d!=='object')return;
+let _MEMBER_GUARD=false, _OFFLINE_GUARD=false;
+function _applyMember(d){
+  if(!_MEMBER_GUARD){ console.warn('拒绝非服务端回执发起的会员状态写入'); return; }
+  if(!d||typeof d!=='object') return;
   // grades 数组也冻结：Object.freeze 是浅冻结，不冻数组的话 MEMBER.grades.push() 仍可篡改
   const g=Object.freeze(Array.isArray(d.grades)?d.grades.slice():[]);
   _MEMBER=Object.freeze({on:!!d.on,tier:d.tier||'',grade:d.grade||'',grades:g});
   refreshMember();
 }
+function _applyMemberOffline(){
+  if(!_OFFLINE_GUARD){ console.warn('离线会员解锁仅限合法离线引导流程'); return; }
+  _MEMBER=Object.freeze({on:true,tier:'all',grade:'',grades:Object.freeze(GRADES.slice())});
+  refreshMember();
+}
+function _withMemberGuard(fn){ _MEMBER_GUARD=true; try{ fn(); } finally{ _MEMBER_GUARD=false; } }
+function _withOfflineGuard(fn){ _OFFLINE_GUARD=true; try{ fn(); } finally{ _OFFLINE_GUARD=false; } }
 Object.defineProperty(window,'MEMBER',{
   configurable:false, enumerable:true,
   get(){return _MEMBER;},
-  set(v){ console.warn('MEMBER 为只读，禁止直接赋值；如需更新请调用 setMember()（仅接受服务端可信数据）。'); }
+  set(v){ console.warn('MEMBER 为只读，禁止直接赋值；会员状态只能由服务端回执经可信路径写入。'); }
 });
 function refreshMember(){IS_MEMBER=premFor(curGrade);}
 function premFor(g){
@@ -1395,9 +1503,11 @@ function switchPage(p){
   // 年级/科目/册 三级导航只在「学习类」页面显示；首页/排行/进度/会员不需要
   const learning=(p==='res'||p==='quiz'||p==='card');
   const nw=document.getElementById('navwrap');if(nw)nw.style.display=learning?'':'none';
-  if(p==='res')renderRes();if(p==='quiz'){buildSubjFilter();renderQuizStat();if(quizTab==='essay')renderEssays();}if(p==='card')loadCards();if(p==='mine')renderMine(false);if(p==='friends')renderFriends(true);if(p==='home'){renderBenefits();renderDash();}
+  if(p==='res')renderRes();if(p==='quiz'){buildSubjFilter();renderQuizStat();if(quizTab==='essay')renderEssays();}if(p==='card')loadCards();if(p==='mine'){renderMine(false);renderMineInvite();}if(p==='friends')renderFriends(true);if(p==='home'){renderBenefits();renderDash();}
 }
 document.querySelectorAll('.nav2 a').forEach(a=>a.onclick=()=>switchPage(a.dataset.p));
+// 「我的」页是动态内容区，复制按钮用事件委托绑定
+document.addEventListener('click',(e)=>{ if(e.target&&e.target.id==='mine-inv-copy') copyMineInvite(); });
 // 窗口尺寸变化：重算吸顶栏高度 + 标签字号自适应
 window.addEventListener('resize',()=>{syncSticky();if(curPage==='quiz'){fitChips($('q-subj'));fitChips($('q-unit'));}});
 syncSticky();
@@ -1699,15 +1809,21 @@ function renderPapers(){
   box.innerHTML=h;
   $('paper-do').style.display='none';box.style.display='block';
 }
-function paperItem(base){
+function paperItem(base, keepOrder){
   const keys=['A','B','C','D'].filter(k=>base.options&&base.options[k]);
-  const order=keys.slice();shuffle(order);   // 打乱选项显示顺序，避免「正确答案总在A」
+  const order=keys.slice();
+  // 普通组卷：打乱选项显示顺序，避免「正确答案总在A」
+  // 挑战模式（keepOrder=true）：必须保持原始选项顺序 —— 否则双方同一题但选项位置不同，
+  // 作答字母对不上，比分就错了（挑战要求双方题目完全一致）。
+  if(!keepOrder) shuffle(order);
   return Object.assign({},base,{order:order});
 }
 function openPaper(id){
   if(!needPerm('答题'))return;
   const p=(DATA.papers||[]).find(x=>x.id===id);if(!p)return;
   pPaper=p;pScore=0;pDone=[];pReturnPage='papers';pChallengeId=null;pChallengeTo='';
+  // 普通卷 → 隐藏挑战提示条（避免上一场挑战的残留信息）
+  try{ const ct=$('chal-tip'); if(ct) ct.style.display='none'; }catch(e){}
   let pool;
   if(p.items&&p.items.length){
     pool=p.items.map((it,i)=>paperItem({id:'P'+p.id+'_'+i,subject:p.subject,unit:p.title,stem:it.stem,options:it.options,answer:it.answer,expl:it.expl||''}));
@@ -1753,19 +1869,68 @@ function submitPaper(){
   const d=$('paper-do');const pct=pList.length?Math.round(pScore/pList.length*100):0;
   let extra='';
   if(pChallengeId){
-    // 刷新挑战：把成绩提交给好友（best-effort，不阻塞展示）
-    (async()=>{ try{ await API.call('/api/challenge/result',{id:pChallengeId,score:pScore}); }
-      catch(e){ console.warn('challenge result failed',e); } })();
-    extra='<div class="hint">⚔️ 成绩已提交给「'+esc(pChallengeTo)+'」，等对方应战/查看结果。</div>';
+    // 刷新挑战：把成绩提交给好友。
+    // 原实现是 fire-and-forget 且失败只写 console → 用户看不到"提交成功还是失败"，
+    // 挑战列表/排行榜也不会刷新（一直 0:0）。现改为：等待结果 → 明确反馈 → 拉取对方进度 → 即时刷新。
+    const cid=pChallengeId, toName=pChallengeTo, myScore=pScore;
+    extra='<div class="hint" id="chal-submit-tip">⚔️ 正在提交成绩给「'+esc(toName)+'」…</div>';
+    (async()=>{
+      const tip=$('chal-submit-tip');
+      try{
+        const r=await API.call('/api/challenge/result',{id:cid,score:myScore});
+        if(tip) tip.innerHTML='✅ 成绩已提交给「'+esc(toName)+'」（你的得分 <b>'+myScore+' 分</b>）。<br><span style="color:#8a6d3b">正在查看对方进度…</span>';
+        toast('✅ 挑战成绩已提交 ✓',1800);
+        // 拉一次挑战列表，看对方是否已交卷 → 给出「等待对方」或「已出结果」
+        try{
+          const cl=await API.call('/api/challenge');
+          const row=((cl&&cl.list)||[]).filter(c=>String(c.id)===String(cid))[0];
+          if(row&&tip){
+            const fs=row.frm_score, ts=row.to_score;
+            if(fs!=null&&ts!=null){
+              const mine=(row.frm_name===CUR_USER)?fs:ts;
+              const theirs=(row.frm_name===CUR_USER)?ts:fs;
+              const win=(mine>theirs?'你赢了 👑':(mine<theirs?'你输了':'平局'));
+              tip.innerHTML='✅ 成绩已提交！<br>最终比分：<b>'+fs+' : '+ts+'</b> → <b>'+win+'</b>';
+              toast('🏆 挑战结束：'+fs+' : '+ts+' '+win,3200);
+            }else{
+              tip.innerHTML='✅ 成绩已提交（你的得分 <b>'+myScore+' 分</b>）。<br><span style="color:#8a6d3b">等待「'+esc(toName)+'」应战并交卷后自动比出胜负。</span>';
+            }
+          }
+        }catch(_){}
+      }catch(e){
+        if(tip) tip.innerHTML='⚠️ 成绩提交失败：'+esc(String(e.message||e))+'，请返回后重试';
+        toast('⚠️ 挑战成绩提交失败',2400);
+      }
+      // 立即刷新挑战列表与排行榜 → 胜负结果马上可见
+      try{ await refreshChallengeNow(); }catch(e){}
+    })();
   }else{
     extra='<div class="hint">真题卷/模拟考成绩仅本次展示，不计入「进度」与日常练题统计，方便你随时自测。</div>';
   }
-  d.innerHTML='<button class="btn ghost sm pc-back" onclick="exitPaper()">← 返回</button>'+
+  d.innerHTML='<button class="btn ghost pc-back" onclick="exitPaper()">← 返回</button>'+
     '<div class="pc-score"><div style="font-size:13px;color:#5c6878">本次得分</div><b>'+pScore+' / '+pList.length+'</b><div class="pct">正确率 '+pct+'%</div></div>'+
     extra+
     '<div class="grid"><button class="btn" onclick="exitPaper()">完成</button></div>';
 }
-function exitPaper(){pList=[];pIdx=0;pScore=0;pDone=[];if(pReturnPage==='mine'){pReturnPage='papers';switchPage('mine');renderMine();}else{gotoPapers();}}
+// 立即刷新挑战列表与排行榜（绕过 300 秒缓存）
+async function refreshChallengeNow(){
+  if(MODE!=='server'||!CUR_USER) return;
+  try{
+    const jobs=[
+      API.call('/api/challenge').then(v=>_mcSet('challenge',v)).catch(()=>{}),
+      API.call('/api/rank').then(v=>_mcSet('rank',v)).catch(()=>{}),
+    ];
+    await Promise.all(jobs);
+    if(curPage==='friends'){ try{ _paintFriends(); }catch(e){} }
+    else if(curPage==='mine'){ try{ _paintMine(); }catch(e){} }
+  }catch(e){}
+}
+function exitPaper(){
+  pList=[];pIdx=0;pScore=0;pDone=[];
+  // 退出答题 → 隐藏挑战提示条
+  try{ const ct=$('chal-tip'); if(ct) ct.style.display='none'; }catch(e){}
+  if(pReturnPage==='mine'){pReturnPage='papers';switchPage('mine');renderMine();}else{gotoPapers();}
+}
 function doExamEnd(){clearAuto();stopTimer();let n=0,r=0;qList.forEach(q=>{const d=S.quiz.done[q.id];if(d){n+=d.n;r+=d.r;}});alert('模拟考结束！本卷 '+qList.length+' 题，本卷正确率 '+(n?Math.round(r/n*100):0)+'%。累计数据见「进度」。');exitQuiz();}
 // 重置本册作答记录（用于二刷）：本地删除作答记录，并用 reset 标记防止云端旧记录合并回来
 function resetVolQuiz(){
@@ -1949,7 +2114,7 @@ async function loadRank(){
   }
 }
 function renderRank(ck,rk){
-  const me=(rk.list||[]).find(x=>x.me)||{score:0,quiz_n:0,rate:0,cards:0,ck_days:0,streak:0,rank:null};
+  const me=(rk.list||[]).find(x=>x.me)||{score:0,quiz_n:0,rate:0,cards:0,ck_days:0,streak:0,rank:null,wins:0,loss:0};
   const bd=rankBadges(me);
   $('rank-me').innerHTML=
    '<div class="rk-me">'
@@ -1960,6 +2125,7 @@ function renderRank(ck,rk){
    +'<span class="rk-chip">正确率 '+me.rate+'%</span>'
    +'<span class="rk-chip">背诵过关 '+me.cards+' 张</span>'
    +'<span class="rk-chip">签到 '+me.ck_days+' 天</span>'
+   +'<span class="rk-chip">挑战战绩 <b>'+(me.wins||0)+'</b> : <b>'+(me.loss||0)+'</b></span>'
    +'</div>'
    +(ck.checked
      ?'<button class="btn" disabled style="opacity:.75">✓ 今日已签到 · 连续 '+(ck.streak||0)+' 天 🔥</button>'
@@ -1973,7 +2139,7 @@ function renderRank(ck,rk){
      '<div class="rk-row'+(r.me?' me':'')+'">'
      +'<div class="rk-no">'+(r.rank<=3?RANK_MEDAL[r.rank-1]:r.rank)+'</div>'
      +'<div class="rk-info"><div class="rk-name">'+esc(r.u)+(r.me?'（我）':'')+'</div>'
-     +'<div class="rk-sub">做题 '+r.quiz_n+' · 正确率 '+r.rate+'% · 背诵 '+r.cards+' · 签到 '+r.ck_days+' 天'+(r.streak>=3?' · 🔥连签'+r.streak+'天':'')+'</div></div>'
+     +'<div class="rk-sub">做题 '+r.quiz_n+' · 正确率 '+r.rate+'% · 背诵 '+r.cards+' · 签到 '+r.ck_days+' 天'+(r.streak>=3?' · 🔥连签'+r.streak+'天':'')+' · 战绩 <b>'+(r.wins||0)+':'+(r.loss||0)+'</b></div></div>'
      +'<div class="rk-pts">'+r.score+'</div></div>').join('')
      :'<div class="hint">还没有成员数据</div>')
    +'<div class="hint">积分规则：签到 +10 分/天，连签第 3 天起每天额外 +2×连签天数（封顶 +20）；做题 +2 分/题，答对再 +1 分；背诵过关 +5 分/张（需🎤语音/输入实测，防刷分）。</div>';
@@ -2147,7 +2313,7 @@ function renderFriendsPage(rk, fr, ch){
     '<div class="nm">'+esc(r.u)+(un?' <i class="unread-n">'+un+'</i>':'')+'</div>'+
     '<div class="sc">'+r.score+'</div>'+
     '<div class="rk-act"><button class="btn sm ghost msg-btn" data-chat="'+esc(r.name)+'" title="发私信" onclick=\'openMsg('+jstr(r.name)+')\'>💬</button>'+
-    '<button class="btn sm" title="刷新挑战" onclick=\'startChallengeWith('+jstr(r.name)+')\'>⚔️</button></div>'+
+    '<button class="btn sm" title="刷新挑战" onclick=\'openChalConfirm('+jstr(r.name)+')\'>⚔️</button></div>'+
     (prev?'<div class="lk-last">'+prev+(tm?' <span class="lk-ts">'+tm+'</span>':'')+'</div>':'')+
     '</div>';
   }).join('') : '<div class="hint" style="margin:2px 0">还没有好友。到下方「世界排行榜」点其他同学分数旁的「＋」申请加好友，通过后可私信、挑战、看全名。</div>';
@@ -2195,7 +2361,7 @@ function renderMineRank(rk, fr, ch){
     '<div class="nm">'+esc(r.u)+(un?' <i class="unread-n">'+un+'</i>':'')+'</div>'+
     '<div class="sc">'+r.score+'</div>'+
     '<div class="rk-act"><button class="btn sm ghost msg-btn" data-chat="'+esc(r.name)+'" title="发私信" onclick=\'openMsg('+jstr(r.name)+')\'>💬</button>'+
-    '<button class="btn sm" title="刷新挑战" onclick=\'startChallengeWith('+jstr(r.name)+')\'>⚔️</button></div>'+
+    '<button class="btn sm" title="刷新挑战" onclick=\'openChalConfirm('+jstr(r.name)+')\'>⚔️</button></div>'+
     (prev?'<div class="lk-last">'+prev+(tm?' <span class="lk-ts">'+tm+'</span>':'')+'</div>':'')+
     '</div>';
   }).join('') : '<div class="hint" style="margin:2px 0">还没有好友。点击上方世界排行榜里其他同学分数旁的「＋」申请加好友，通过后可私信、挑战、看全名。</div>';
@@ -2214,6 +2380,129 @@ function renderMineRank(rk, fr, ch){
   renderChallengeList(ch);
 }
 
+// ===== 分享 · 邀请注册（「我的」页）=====
+function mineInviteLink(){
+  const base=(API_BASES[API_BASE_IDX]||'').replace(/\/$/,'');
+  const origin=base||location.origin;
+  return origin+'/?inv='+encodeURIComponent(CUR_USER||'');
+}
+function copyMineInvite(){
+  const le=$('mine-inv-link'); if(!le) return;
+  const t=le.value||'';
+  if(!t){ toast('请先登录后再复制',1800); return; }
+  // 旧内核兜底：临时 textarea + execCommand（必须在用户手势内同步执行）
+  let ok=false;
+  try{
+    const ta=document.createElement('textarea');
+    ta.value=t; ta.setAttribute('readonly','');
+    ta.style.cssText='position:fixed;left:-9999px;top:0;opacity:0';
+    document.body.appendChild(ta);
+    ta.select(); ta.setSelectionRange(0,t.length);
+    ok=document.execCommand('copy');
+    document.body.removeChild(ta);
+  }catch(e){ ok=false; }
+  if(ok){ toast('邀请链接已复制 ✓',1800); return; }
+  // 现代接口（需安全上下文 / 用户手势）
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(
+      ()=>toast('邀请链接已复制 ✓',1800),
+      ()=>{ try{ le.focus(); le.select(); }catch(e){} toast('已选中链接，请长按或按 Ctrl+C 复制',2800); });
+  }else{
+    try{ le.focus(); le.select(); }catch(e){}
+    toast('已选中链接，请长按或按 Ctrl+C 复制',2800);
+  }
+}
+async function renderMineInvite(){
+  const le=$('mine-inv-link');
+  if(le) le.value=mineInviteLink();
+  const box=$('mine-inv-records'); if(!box) return;
+  if(MODE!=='server'||!CUR_USER){
+    box.innerHTML='<div class="muted" style="font-size:12.5px">登录后可生成邀请链接并查看邀请记录。</div>';
+    return;
+  }
+  try{
+    const j=await API.call('/api/invite/stat');
+    const valid=j.valid||0, total=j.invited||0;
+    const sum=$('mine-inv-sum');
+    if(sum) sum.innerHTML='<b>'+valid+'</b> 位有效邀请 ｜ 共注册 '+total+' 位 ｜ 已激活 '+(j.activated||0)
+      +' ｜ 有学习痕迹 '+(j.acted||0)+' ｜ 已充值 '+(j.paid||0);
+    const tb=$('mine-inv-tiers');
+    if(tb){
+      tb.innerHTML=(j.tiers||[]).map(function(t){
+        const need=t.need||1, cur=Math.min(valid,need), pct=Math.min(100,Math.round(cur/need*100));
+        return '<div class="inv-tier inv-tier-lite '+(t.reached?'ok':'')+'">'
+          +'<div class="inv-tier-h"><span>'+(t.reached?'✅ ':'🔒 ')+esc(t.label)+'</span><b>'+valid+'/'+need+'</b></div>'
+          +'<div class="bar"><i style="width:'+pct+'%"></i></div>'
+          +'<div class="inv-tier-d">'+esc(t.desc||'')+'</div></div>';
+      }).join('');
+    }
+  }catch(e){ const sum=$('mine-inv-sum'); if(sum) sum.textContent='邀请进度加载失败：'+e.message; }
+  try{
+    const j2=await API.call('/api/invite/records');
+    const recs=j2.records||[];
+    if(!recs.length){
+      box.innerHTML='<div class="muted" style="font-size:12.5px">还没有同学通过你的链接注册，把链接发给同学吧。</div>';
+    }else{
+      box.innerHTML=recs.map(function(r){
+        const tag=r.valid?'<span style="color:#1a8a4a">✅ 有效</span>'
+                        :'<span style="color:#b26a00">⚠️ '+(esc(r.reason||'无效'))+'</span>';
+        const flags=[r.activated?'已登录':'未激活', r.acted?'有学习痕迹':'无学习痕迹', r.paid?'已充值':'未充值'].join(' · ');
+        return '<div class="chal-card"><div class="ct">'+esc(r.name)
+          +'<span class="muted" style="font-size:11.5px;margin-left:6px">'+esc((r.created_at||'').slice(0,16))+'</span>'
+          +'</div><div style="font-size:12px;margin-top:3px">'+tag+'　<span class="muted">'+flags+'</span></div></div>';
+      }).join('');
+    }
+  }catch(e){ box.innerHTML='<div class="muted" style="font-size:12.5px">邀请记录加载失败：'+esc(e.message)+'</div>'; }
+}
+// 访客（未登录 / 非会员）通过邀请链接打开 → 展示邀请人的公开状态卡
+async function showInvitedCard(){
+  let inv='';
+  try{ inv=new URLSearchParams(location.search).get('inv')||''; }catch(e){}
+  if(!inv) return;
+  try{
+    const j=await API.call('/api/invite/card?u='+encodeURIComponent(inv));
+    const c=j.card||{}; if(!c.name) return;
+    const gs=(c.member_grades||'').split(',').filter(Boolean);
+    const m=$('inv-card-msg'); if(!m) return;
+    const isSelf=!!(CUR_USER && CUR_USER===c.name);
+    m.innerHTML='<div style="text-align:center;margin-bottom:10px">'
+      +'<div style="font-size:15.5px;font-weight:700">'+esc(c.name)+' 邀请你一起学</div>'
+      +'<div style="font-size:12px;color:#8a97a6;margin-top:3px">TA 的当前学习状态（未开通会员也能看）</div></div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px 10px;font-size:12.5px;text-align:left">'
+      // 会员行独占整行：学科三个（如 高一/高二/高三）在半宽格子里会折行，看着像掉队
+      +'<div style="grid-column:1/-1">👑 会员：'+(c.member?'<b style="color:#1565c0">已开通'+(gs.length?(' · '+esc(gs.join(' / '))):'')+'</b>':'<span style="color:#8a97a6">未开通</span>')+'</div>'
+      +'<div>⭐ 积分：<b>'+(c.score||0)+'</b></div>'
+      +'<div>📅 打卡：<b>'+(c.ck_days||0)+'</b> 天</div>'
+      +'<div>📝 答题：<b>'+(c.quiz_n||0)+'</b> 题</div>'
+      +'<div>🗂 背诵：<b>'+(c.cards||0)+'</b> 张</div>'
+      +'<div style="grid-column:1/-1">🎯 正确率：<b>'+(c.rate||0)+'%</b></div>'
+      +'<div style="grid-column:1/-1">⚔️ 挑战：<b>'+(c.wins||0)+' 胜 '+(c.loss||0)+' 负</b></div>'
+      +'</div>'
+      +'<div style="font-size:12px;color:#8a97a6;margin-top:10px;line-height:1.6">'
+      +(isSelf?'这是你自己的状态卡。':'点「知道了」后注册，即可与 '+esc(c.name)+' 建立邀请关系，双方都能累计阶梯奖励。')
+      +'</div>';
+    overlay('invCardOverlay',true);
+    // 访客未登录时，登录遮罩稍后再弹：先让人看清邀请人的状态，再引导注册
+    try{
+      if(!CUR_USER && !window._invLoginDeferred){
+        window._invLoginDeferred=true;
+        setTimeout(function(){
+          try{
+            var lo=document.getElementById('loginOverlay');
+            if(lo && getComputedStyle(lo).display!=='none') overlay('loginOverlay',false);
+            if(!CUR_USER) overlay('loginOverlay',true);
+          }catch(e){}
+        },2600);
+      }
+    }catch(e){}
+  }catch(e){ /* 用户不存在或无权限：静默忽略，不打扰访客 */ }
+}
+function closeInvCard(){
+  overlay('invCardOverlay',false);
+  // 看完状态卡 → 若仍未登录，引导注册（保留邀请关系）
+  try{ if(!CUR_USER) overlay('loginOverlay',true); }catch(e){}
+}
+
 // 挑战列表渲染（「好友」页与「我的」页共用）
 function renderChallengeList(ch){
   const cls=(ch&&ch.list)||[];
@@ -2223,18 +2512,51 @@ function renderChallengeList(ch){
     let act='', title='';
     if(c.status==='pending' && iAmTo){
       title='⚔️ '+esc(c.frm)+' 向你发起挑战';
-      act='<button class="btn sm" onclick=\'startChallenge('+jstr(c.frm_name)+','+c.id+')\'>应战</button>';
+      // 应战 + 拒接（用户要求"可拒接"）
+      act='<button class="btn sm" onclick=\'startChallenge('+jstr(c.frm_name)+','+c.id+')\'>应战</button>'+
+          '<button class="btn sm ghost" onclick=\'rejectChallenge('+c.id+')\'>拒接</button>';
     }else if(c.status==='pending' && iAmFm){
       title='⚔️ 你向 '+esc(c.to)+' 发起挑战（等待应战）';
+    }else if(c.status==='rejected'){
+      title='⚔️ '+esc(c.frm)+' 与 '+esc(c.to)+' 的挑战已被拒接';
     }else{
       const fs=c.frm_score!=null?c.frm_score:'-', ts=c.to_score!=null?c.to_score:'-';
       const win=(c.frm_score!=null&&c.to_score!=null)?(c.frm_score>c.to_score?'你赢了 👑':(c.frm_score<c.to_score?'你输了':'平局')):'进行中';
       title='⚔️ '+esc(c.frm)+' '+fs+' : '+ts+' '+esc(c.to)+' → '+win;
     }
-    chtml+='<div class="chal-card"><div class="ct">'+title+'</div>'+act+'</div>';
+    chtml+='<div class="chal-card"><div class="ct">'+title+'</div>'+(act?'<div class="acts">'+act+'</div>':'')+'</div>';
   });
+  // 清理入口（用户要求"清理记录"）
+  const clearBtn='<div style="margin:8px 0 2px;display:flex;gap:6px;flex-wrap:wrap">'+
+    '<button class="btn sm ghost" onclick=\'clearChallenges("finished")\'>🧹 清理已结束记录（战绩保留）</button>'+
+    '<button class="btn sm ghost" onclick=\'clearChallenges("all")\'>🗑 清空全部挑战记录</button></div>';
+  chtml = (chtml || '<div class="hint" style="margin:2px 0">还没有挑战记录，点好友旁的 ⚔️ 发起挑战。</div>') + clearBtn;
   const mine=$('mine-challenges'); if(mine) mine.innerHTML=chtml;
   const frc=$('fr-challenges'); if(frc) frc.innerHTML=chtml;
+}
+
+// 拒接挑战
+async function rejectChallenge(cid){
+  if(!confirm('确定拒接这个挑战吗？')) return;
+  try{
+    const r=await API.call('/api/challenge/reject',{id:cid});
+    toast(r&&r.msg?r.msg:'已拒接 ✓',1800);
+    await refreshChallengeNow();
+  }catch(e){
+    toast('⚠️ 拒接失败：'+String(e.message||e),2400);
+  }
+}
+// 清理挑战记录
+async function clearChallenges(mode){
+  const tip=(mode==='all')?'确定清空全部挑战记录吗？（包括进行中的；战绩会保留）':'确定清理已结束的挑战记录吗？（进行中的会保留，战绩不受影响）';
+  if(!confirm(tip)) return;
+  try{
+    const r=await API.call('/api/challenge/clear',{mode:mode});
+    toast(r&&r.msg?r.msg:'已清理 ✓',2000);
+    await refreshChallengeNow();
+  }catch(e){
+    toast('⚠️ 清理失败：'+String(e.message||e),2400);
+  }
 }
 
 // 社交功能会员门禁：加好友 / 私信 / 挑战 需开通会员
@@ -2338,20 +2660,83 @@ async function rejectFriend(name){
     _paintMine();
   }catch(e){ alert(String(e.message||e)); }
 }
-async function startChallengeWith(name){ if(!needVip('刷新挑战'))return; try{ const r=await API.call('/api/challenge/new',{to:name}); if(r.id) startChallenge(name, r.id); }catch(e){ alert(String(e.message||e)); } }
-
-function startChallenge(to, cid){
+// 发起挑战：二次确认弹窗 → 防重复点击（_chalBusy）→ 明确反馈（发起成功/失败）
+// 用户反馈"点发送挑战没反馈，有能会多次点击" → 原来既无提示、又可连点发起多个挑战。
+let _chalBusy=false, _chalPending=null;
+// 打开发起确认弹窗
+function openChalConfirm(name){
+  _chalPending=name;
+  const el=$('chalConfirmTo'); if(el) el.textContent=name;
+  overlay('chalConfirm',true);
+}
+function closeChalConfirm(){
+  _chalPending=null;
+  overlay('chalConfirm',false);
+}
+// 确认发送：真正发起 + 抽题
+async function doChalConfirm(){
+  const name=_chalPending;
+  closeChalConfirm();
+  if(!name) return;
+  await sendChallenge(name);
+}
+async function sendChallenge(name, btn){
   if(!needVip('刷新挑战'))return;
-  const bank=(DATA.questions||[]).filter(q=>(q.volume==='高考·综合')||(q.volume==='高考·选必'));
+  if(_chalBusy){ toast('正在发起中，请稍候…',1400); return; }
+  _chalBusy=true;
+  const old=btn?btn.innerHTML:'';
+  if(btn){ btn.innerHTML='发起中…'; btn.disabled=true; }
+  try{
+    const r=await API.call('/api/challenge/new',{to:name});
+    if(!r||!r.id) throw new Error('服务端未返回挑战 id');
+    const cnt=(r.count||20);
+    // 发起成功 → 明确告知（用户诉求："这样才知道有没有发起成功"）
+    toast('✅ 挑战发起成功！已发送给「'+name+'」，共 '+cnt+' 题，正在为你抽题…',2800);
+    await startChallenge(name, r.id);
+  }catch(e){
+    toast('⚠️ 发起挑战失败：'+String(e.message||e),3000);
+  }finally{
+    _chalBusy=false;
+    if(btn){ btn.innerHTML=old; btn.disabled=false; }
+  }
+}
+
+// 开始挑战：题单由服务端按挑战 id 给出（双方同一套题，保证公平）
+async function startChallenge(to, cid){
+  if(!needVip('刷新挑战'))return;
+  // 拉服务端题单（双方一致）；失败则退回本地随机
+  let ids=null;
+  try{
+    const r=await API.call('/api/challenge/items',{id:cid});
+    if(r&&Array.isArray(r.items)&&r.items.length) ids=r.items;
+  }catch(e){}
+  let bank=(DATA.questions||[]).filter(q=>(q.volume==='高考·综合')||(q.volume==='高考·选必'));
   if(!bank.length){alert('暂无可组卷题目。');return;}
-  shuffle(bank);
-  pList=bank.slice(0,20).map(q=>paperItem({id:q.id,subject:q.subject,unit:q.unit,stem:q.stem,options:q.options,answer:q.answer,expl:q.expl||''}));
+  let picked;
+  if(ids){
+    const map={}; bank.forEach(q=>{ map[q.id]=q; });
+    picked=ids.map(i=>map[i]).filter(Boolean);
+  }
+  if(!picked||!picked.length){
+    // 题单拿不到 → 明确报错并删除**本次**这条失败挑战（不静默退回随机题，
+    // 否则双方题目不同、比分失真，用户还会以为"抽到题了"）。
+    toast('⚠️ 抽题失败：服务器未能返回题单，请稍后重试',3200);
+    try{ await API.call('/api/challenge/cancel',{id:cid}); }catch(e){}
+    try{ await refreshChallengeNow(); }catch(e){}
+    return;
+  }
+  pList=picked.map(q=>paperItem({id:q.id,subject:q.subject,unit:q.unit,stem:q.stem,options:q.options,answer:q.answer,expl:q.expl||''}, true));
   pPaper={title:'⚔️ 刷新挑战 vs '+to};
   pScore=0;pDone=[];pChallengeId=cid;pChallengeTo=to;pReturnPage='mine';
   gotoPapers();
   $('papers-list').style.display='none';
   $('paper-do').style.display='block';
   renderPaperQ();
+  // 发起成功的持续反馈：答题界面顶部明确显示「已发起 + 对方 + 同题说明」
+  try{
+    const tip=$('chal-tip');
+    if(tip){ tip.style.display='block'; tip.innerHTML='✅ 挑战已发起成功！对手 <b>'+esc(to)+'</b>，双方做<b>同一套 '+pList.length+' 题</b>（题目与选项顺序完全相同）。做完点「交卷」提交成绩。'; }
+  }catch(e){}
 }
 
 // 发起刷新挑战：弹出好友选择器，选定好友后发起
@@ -2364,7 +2749,7 @@ function startChallengePicker(){
   }
   const box=$('challengePickerList');
   if(box) box.innerHTML=fr.map(r=>
-    '<button class="btn sm" onclick="startChallengeWith('+jstr(r.name)+');closeChallengePicker()">⚔️ '+esc(r.u)+'</button>'
+    '<button class="btn sm" onclick="closeChallengePicker();openChalConfirm('+jstr(r.name)+')">⚔️ '+esc(r.u)+'</button>'
   ).join('');
   const p=$('challengePicker'); if(p) p.style.display='flex';
 }
@@ -2961,8 +3346,7 @@ async function ghStartOffline(){
   try{ if(_ghAutoRedirect){ clearTimeout(_ghAutoRedirect); _ghAutoRedirect=null; } }catch(e){}
   MODE='offline';
   try{ if(!DATA) await loadContent(); }catch(e){}
-  setMember({on:true,tier:'all',grade:'',grades:GRADES.slice()});
-  refreshMember();
+  _withOfflineGuard(_applyMemberOffline);
   updateLineLabel();
   if(!DATA){
     overlay('loginOverlay',true);
@@ -3214,6 +3598,207 @@ function dashRadar(rates){ // 四科雷达：上政治 右历史 下地理 左�
 // AI 答疑老师：用户自绑主流大模型 Key（服务端代理，Key 不下发）
 // ============================================================
 let AI_ST={state:null,hist:[],loading:false};
+// ===== AI 语音播报（speechSynthesis TTS）=====
+// 设置项存在本地（localStorage），不进服务端：① 开关 ② 音色 ③ 语速。
+// 参考「aidesk」式语音助手：AI 回复后自动朗读，可随时打断。
+const TTS_KEY='zb_ai_tts';
+let TTS_VOICES=[], _ttsUtter=null, _ttsSeq=0;
+// 推荐音色：与 AiDesk 同款的 8 个音色（晓晓/晓伊/小妮/小贝/云希/云健/云扬/晓曼）。Windows 上以 "Desktop" 结尾的多为机械音，
+// 而 Edge/Chrome 带的 "Online (Natural)" 神经网络音色最像真人，所以选音色时按自然度打分排序。
+const TTS_PRESETS=[
+  // cloud:1 = 该音色支持云端合成。云端只保留一女一男两个音色，其余仅本机可用。
+  {k:'xiaoxiao', n:'晓晓 · 温柔女声（推荐）', re:/xiaoxiao|\u6653\u6653/i,   cloud:1},
+  {k:'xiaoyi',   n:'晓伊 · 活泼女声',         re:/xiaoyi|\u6653\u4f0a/i,    cloud:0},
+  {k:'xiaoni',   n:'小妮 · 陕西女声',         re:/xiaoni|\u5c0f\u59ae/i,    cloud:0},
+  {k:'xiaobei',  n:'小贝 · 东北女声',         re:/xiaobei|\u5c0f\u8d1d/i,  cloud:0},
+  {k:'yunxi',    n:'云希 · 青年男声',         re:/yunxi|\u4e91\u5e0c/i,     cloud:1},
+  {k:'yunjian',  n:'云健 · 浑厚男声',         re:/yunjian|\u4e91\u5065/i,   cloud:0},
+  {k:'yunyang',  n:'云扬 · 播音男声',         re:/yunyang|\u4e91\u626c/i,   cloud:0},
+  {k:'xiaoman',  n:'晓曼 · 粤语女声',         re:/xiaoman|\u6653\u66fc/i,   cloud:0}
+];
+// 该预设是否支持云端合成
+function ttsCloudOk(key){
+  const pp = TTS_PRESETS.find(p=>p.k===key);
+  return !!(pp && pp.cloud);
+}
+function ttsCfg(){
+  // 默认音色改用推荐预设 'p:xiaoxiao'：本机有微软神经音就走本地（免费零延迟），
+  // 没有则由 ttsUseCloud 自动改走云端 TTS（手机也能听到），不再退化成系统机械音。
+  let c={on:false,voice:'p:xiaoxiao',rate:1.0,pitch:1.0};
+  try{ const s=JSON.parse(localStorage.getItem(TTS_KEY)||'null'); if(s&&typeof s==='object') Object.assign(c,s); }catch(e){}
+  if(typeof c.voice!=='string') c.voice='p:xiaoxiao';
+  return c;
+}
+function ttsSave(c){ try{ localStorage.setItem(TTS_KEY,JSON.stringify(c)); }catch(e){} }
+// 语音列表在部分浏览器是异步加载的，需监听 voiceschanged
+function ttsLoadVoices(cb){
+  if(!('speechSynthesis' in window)){ if(cb)cb([]); return; }
+  const grab=()=>{ try{ TTS_VOICES=speechSynthesis.getVoices()||[]; }catch(e){ TTS_VOICES=[]; } if(cb)cb(TTS_VOICES); };
+  grab();
+  try{ speechSynthesis.onvoiceschanged=grab; }catch(e){}
+}
+function ttsIsZh(v){
+  const l=(v&&v.lang||'').toLowerCase(), n=(v&&v.name||'');
+  return /^zh|^cmn/.test(l)||/chinese|\u4e2d\u6587|\u666e\u901a\u8bdd/i.test(n);
+}
+// 自然度打分：神经网络音色 >> Google/系统在线音色 >> Windows 自带机械音(Desktop)
+function ttsScore(v){
+  if(!ttsIsZh(v)) return -1e6;
+  const n=v.name||'', u=v.voiceURI||'';
+  let s=10;
+  if(/natural/i.test(n)) s+=80;                 // Edge/Chrome：Online (Natural) 神经网络音色
+  else if(/online/i.test(n)) s+=30;
+  if(/desktop/i.test(n)) s-=55;                 // 机械感最强的本地合成音，尽量不用
+  if(/google/i.test(n)) s+=28;
+  for(let i=0;i<TTS_PRESETS.length;i++){ if(TTS_PRESETS[i].re.test(n)||TTS_PRESETS[i].re.test(u)){ s+=40-i*2; break; } }
+  if(/huihui|kangkang|yaoyao|tingting|sinji|meijia|\u5eb7\u5eb7|\u59da\u59da|\u5a77\u5a77/i.test(n)) s+=6;
+  if(v.localService) s+=2;
+  return s;
+}
+function ttsZh(){ return (TTS_VOICES||[]).filter(ttsIsZh); }
+// 选音色：① "p:预设key"（推荐音色，自动匹配系统里真实的神经网络音）② 音色 voiceURI/name ③ 空=自动挑最自然的
+function ttsPickVoice(name){
+  const vs=TTS_VOICES||[];
+  if(!vs.length) return null;
+  if(name&&name.indexOf('p:')===0){
+    let pp=null;
+    for(let i=0;i<TTS_PRESETS.length;i++) if(TTS_PRESETS[i].k===name.slice(2)){ pp=TTS_PRESETS[i]; break; }
+    if(pp){
+      const zh=ttsZh(); let best=null,bs=-1e9;
+      for(const v of zh){ let s=ttsScore(v); if(pp.re.test(v.name||'')||pp.re.test(v.voiceURI||'')) s+=300; if(s>bs){bs=s;best=v;} }
+      if(best) return best;
+    }
+  }
+  if(name){ const hit=vs.find(v=>v.voiceURI===name||v.name===name); if(hit) return hit; }
+  const zh=ttsZh(); const pool=zh.length?zh:vs;
+  let best=null,bs=-1e9;
+  for(const v of pool){ const s=ttsScore(v); if(s>bs){bs=s;best=v;} }
+  return best||pool[0]||null;
+}
+// 长文本按句切分朗读：避免浏览器对超长 utterance 静默截断（Chrome 常见）
+function ttsSplit(t){
+  const out=[]; let buf='';
+  for(const ch of t){
+    buf+=ch;
+    if(/[\u3002\uff01\uff1b\uff1f\uff0c\u3001.!?;,]/.test(ch)&&buf.length>=55){ out.push(buf); buf=''; }
+    else if(buf.length>=110){ out.push(buf); buf=''; }
+  }
+  if(buf.trim()) out.push(buf);
+  return out.slice(0,8);
+}
+// 该预设音色在本地是否真的存在（用于决定走本地还是云端）
+function ttsPresetHasLocal(key){
+  const pp = TTS_PRESETS.find(p=>p.k===key);
+  if(!pp) return false;
+  return ttsZh().some(v=> pp.re.test(v.name||'') || pp.re.test(v.voiceURI||''));
+}
+// 本机是否存在自然度够用的中文音（Neural / Online / Google）；手机系统音与 Windows 机械音不算
+function ttsHasGoodLocal(){
+  const zh=ttsZh();
+  return zh.some(v=>/natural|online|google/i.test(v.name||'')||/natural|online/i.test(v.voiceURI||''));
+}
+// 是否应使用云端 TTS：
+//   1) 选了支持云端的推荐音色、但本机没有对应神经音（典型：手机）→ 云端
+//   2) 选了"自动"，但本机没有自然度够用的中文音 → 云端默认女声
+//   3) 选了不支持云端的音色（云端只提供一女一男）→ 本地朗读，本机没有该音色时
+//      由 ttsPickVoice 回退到设备默认中文音（手机自带机械音）接替
+function ttsUseCloud(cfg){
+  if(!cfg) return false;
+  const v=cfg.voice||'';
+  if(v.indexOf('p:')!==0){
+    if(v) return false;                 // 用户显式指定了某个系统音色 → 尊重用户选择
+    return !ttsHasGoodLocal();          // 自动模式：本机没好音就上云端
+  }
+  const key=v.slice(2);
+  if(!ttsCloudOk(key)) return false;    // 云端不支持该音色 → 本地 / 设备默认音接替
+  return !ttsPresetHasLocal(key);
+}
+// 音频解锁：必须在"用户手势"内调用一次。
+// 根因：AI 回复是异步返回的，此时 play() 已脱离用户手势上下文，iOS Safari / 部分安卓浏览器
+// 会按自动播放策略拒绝播放 → 表现为"AI 回复后没播报"，且旧代码把错误静默吞掉，用户毫无感知。
+let _ttsAC=null;
+function ttsUnlockAudio(){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(AC){
+      if(!_ttsAC) _ttsAC=new AC();
+      if(_ttsAC.state==='suspended') _ttsAC.resume();
+      // 播一个 1 采样点的空 buffer：激活音频会话但不产生任何声音
+      const buf=_ttsAC.createBuffer(1,1,22050);
+      const src=_ttsAC.createBufferSource(); src.buffer=buf; src.connect(_ttsAC.destination); src.start(0);
+    }
+  }catch(e){}
+  try{
+    if('speechSynthesis' in window){
+      const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u);
+    }
+  }catch(e){}
+}
+let _cloudAudio=null;
+// 播放云端音频；被拦截或出错时调用 onFail → 回退到本机语音（设备默认音接替）
+function ttsPlayCloud(url,onFail){
+  try{ if(_cloudAudio){ _cloudAudio.pause(); _cloudAudio=null; } }catch(e){}
+  const a=new Audio(url); _cloudAudio=a;
+  a.play().catch(()=>{
+    try{ if(_cloudAudio===a) _cloudAudio=null; }catch(e){}
+    if(typeof onFail==='function') onFail();
+  });
+}
+function ttsStopCloud(){ try{ if(_cloudAudio){ _cloudAudio.pause(); _cloudAudio=null; } }catch(e){} }
+// 表情包 / emoji 过滤：这些字符朗读出来是"微笑""点赞"之类的怪异音，AI 回复里又很常见
+let _ttsEmojiRe=null;
+try{ _ttsEmojiRe=new RegExp('[\\p{Extended_Pictographic}\\u{1F3FB}-\\u{1F3FF}\\u{FE0F}\\u{20E3}\\u{1F1E6}-\\u{1F1FF}\\u{2B00}-\\u{2BFF}\\u{2700}-\\u{27BF}\\u{25A0}-\\u{25FF}\\u{2190}-\\u{21FF}]','gu'); }
+catch(e){ _ttsEmojiRe=/[\uD800-\uDBFF][\uDC00-\uDFFF]/g; }
+// 朗读一段文本（清洗 Markdown 记号与表情包，读起来更自然）
+function ttsSpeak(text){
+  const cfg=ttsCfg();
+  if(!cfg.on) return;
+  let t=(text||'')
+    .replace(/```[\s\S]*?```/g,' ')            // 代码块
+    .replace(/!\[[^\]]*\]\([^)]*\)/g,' ')       // markdown 图片（表情包）整条删除
+    .replace(/\[([^\]]*)\]\([^)]*\)/g,'$1')     // 链接只读文字部分
+    .replace(/[*_`#>|]/g,' ')
+    .replace(_ttsEmojiRe,' ')                   // 表情包 / emoji 不播报
+    .replace(/\s+/g,' ').trim();
+  if(!t) return;
+  if(t.length>900) t=t.slice(0,900)+'…';
+  const rate=Math.min(2,Math.max(0.5,parseFloat(cfg.rate)||1));
+  const pitch=Math.min(2,Math.max(0,parseFloat(cfg.pitch)||1));
+  // 本机没有该音色、且云端支持 → 走云端 TTS；云端失败自动回退本机语音（设备默认音接替）
+  if(ttsUseCloud(cfg)){
+    // 自动模式走云端时，用默认推荐女声
+    const key=(cfg.voice||'').indexOf('p:')===0 ? cfg.voice.slice(2) : 'xiaoxiao';
+    API.call('/api/tts',{text:t, voice:key, rate:rate, pitch:pitch})
+      .then(j=>{ if(j && j.ok && j.url) ttsPlayCloud(j.url,()=>ttsSpeakLocal(t, rate, pitch)); else ttsSpeakLocal(t, rate, pitch); })
+      .catch(()=>{ ttsSpeakLocal(t, rate, pitch); });
+    return;
+  }
+  ttsSpeakLocal(t, rate, pitch);
+}
+// 本地 speechSynthesis 朗读（桌面 Edge/Chrome 有神经网络音时用；云端不可用时回退也用）
+function ttsSpeakLocal(t, rate, pitch){
+  if(!('speechSynthesis' in window)) return;
+  try{ speechSynthesis.cancel(); }catch(e){}
+  const parts=ttsSplit(t);
+  const v=ttsPickVoice(ttsCfg().voice);
+  let i=0;
+  const seq=++_ttsSeq;   // 代际令牌：被 cancel/新一段播报打断后，残留回调不得续播
+  const next=()=>{
+    if(seq!==_ttsSeq){ _ttsUtter=null; return; }
+    if(i>=parts.length){ _ttsUtter=null; return; }
+    try{
+      const u=new SpeechSynthesisUtterance(parts[i++]);
+      if(v){ u.voice=v; u.lang=v.lang; } else { u.lang='zh-CN'; }
+      u.rate=rate; u.pitch=pitch;
+      u.onend=next; u.onerror=()=>{ _ttsUtter=null; };
+      _ttsUtter=u;
+      speechSynthesis.speak(u);
+    }catch(e){ _ttsUtter=null; }
+  };
+  next();
+}
+function ttsStop(){ _ttsSeq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} _ttsUtter=null; ttsStopCloud(); }
+
 function initAiFab(){
   const fab=$('aiFab');if(!fab)return;
   if(MODE!=='server'){fab.style.display='none';return;}
@@ -3221,11 +3806,143 @@ function initAiFab(){
   const x=$('ai-close');if(x)x.onclick=()=>aiToggle(false);
   const g=$('ai-gear');if(g)g.onclick=()=>{const st=$('ai-setup'),cw=$('ai-chat-wrap');cw.style.display='none';st.style.display='flex';renderAiSetup();};
   const fm=$('aiForm');if(fm)fm.onsubmit=ev=>{ev.preventDefault();aiSend();};
+  // 语音输入按钮
+  const mic=$('ai-mic');if(mic)mic.onclick=()=>aiMicToggle();
+  // 预加载语音（音色列表），保证设置面板打开时能直接选择
+  try{ ttsLoadVoices(()=>{}); }catch(e){}
+}
+// 面板打开时锁住底层页面：否则面板内滑到底会继续带动底层滚动（两层滚动条互窜）
+let _aiLockY=0;
+function aiScrollLock(on){
+  const b=document.body; if(!b) return;
+  if(on){
+    if(b.classList.contains('ai-lock')) return;
+    _aiLockY=window.scrollY||document.documentElement.scrollTop||0;
+    b.style.top=(-_aiLockY)+'px';
+    b.classList.add('ai-lock');
+  }else{
+    if(!b.classList.contains('ai-lock')) return;
+    b.classList.remove('ai-lock'); b.style.top='';
+    window.scrollTo(0,_aiLockY);
+  }
 }
 function aiToggle(on){
+  aiRoleBadge();
   const p=$('aiPanel');if(!p)return;
   p.style.display=on?'flex':'none';
+  aiScrollLock(!!on);
+  // 关闭面板时停止录音、停止播报，避免后台一直开着麦克风/朗读
+  if(!on){ _aiTok++; if(_aiSR){ try{_aiSR.stop();}catch(e){} } ttsStop(); }
   if(on)aiLoadState();
+}
+// ===== AI 角色设定（保存在本机浏览器，不上传服务端）=====
+const ROLES_KEY='zb_ai_roles', ROLE_CUR_KEY='zb_ai_role_cur', ROLE_TITLES_KEY='zb_ai_titles';
+const DEFAULT_ROLES=[
+  {id:'teacher', icon:'📚', name:'专业老师', temp:0.5, prompt:'你是一位经验丰富、严谨负责的高中政史地生辅导老师（新高考3+1+2）。讲解条理清晰、重方法论与赋分术语，习惯先给结论再展开，会主动指出学生容易踩的坑。', builtin:1},
+  {id:'chatty',  icon:'💬', name:'陪聊型',   temp:0.9, prompt:'你是一位温柔耐心的学习伙伴，像朋友一样陪学生聊天解压、疏导情绪，顺带把知识点讲清楚。语气轻松、多鼓励少说教，不催促、不施压。', builtin:1},
+  {id:'all',     icon:'🧭', name:'全能型',   temp:0.7, prompt:'你是一位博学多才的通用助手，既能讲清学科知识与学习方法，也能聊日常话题和心事。回答贴合学生的真实处境，不说空话套话。', builtin:1}
+];
+let AI_ROLES=[], AI_ROLE_CUR='teacher', AI_TITLES={ai:'小老师', user:'同学'};
+function aiRolesLoad(){
+  if(AI_ROLES.length) return;
+  try{
+    const raw=JSON.parse(localStorage.getItem(ROLES_KEY)||'null');
+    if(Array.isArray(raw)&&raw.length) AI_ROLES=raw;
+  }catch(e){}
+  if(!AI_ROLES.length) AI_ROLES=DEFAULT_ROLES.map(r=>({id:r.id,icon:r.icon,name:r.name,temp:r.temp,prompt:r.prompt}));
+  else{
+    // 版本升级：补齐后加的内置角色
+    DEFAULT_ROLES.forEach(d=>{ if(!AI_ROLES.some(r=>r.id===d.id)) AI_ROLES.push({id:d.id,icon:d.icon,name:d.name,temp:d.temp,prompt:d.prompt}); });
+  }
+  try{
+    const c=localStorage.getItem(ROLE_CUR_KEY);
+    if(c&&AI_ROLES.some(r=>r.id===c)) AI_ROLE_CUR=c;
+    const t=JSON.parse(localStorage.getItem(ROLE_TITLES_KEY)||'null');
+    if(t&&typeof t==='object'){
+      AI_TITLES={ ai:(String(t.ai||'').trim()||'小老师'), user:(String(t.user||'').trim()||'同学') };
+    }
+  }catch(e){}
+}
+function aiRolesSave(){
+  try{
+    localStorage.setItem(ROLES_KEY,JSON.stringify(AI_ROLES));
+    localStorage.setItem(ROLE_CUR_KEY,AI_ROLE_CUR);
+    localStorage.setItem(ROLE_TITLES_KEY,JSON.stringify(AI_TITLES));
+  }catch(e){}
+}
+function aiRoleCur(){ aiRolesLoad(); return AI_ROLES.find(r=>r.id===AI_ROLE_CUR)||AI_ROLES[0]||null; }
+// 发送给后端的角色信息
+function aiPersona(){
+  const r=aiRoleCur();
+  return {
+    name: (r&&r.name)||'',
+    prompt: (r&&r.prompt)||'',
+    temp: (r&&typeof r.temp==='number')?r.temp:0.6,
+    aiTitle: AI_TITLES.ai||'',
+    userTitle: AI_TITLES.user||''
+  };
+}
+// 面板头部显示当前角色
+function aiRoleBadge(){
+  aiRolesLoad();
+  const r=aiRoleCur();
+  const b=$('ai-role-badge');
+  if(b) b.textContent = r ? ((r.icon||'🎭')+' '+r.name) : '🤖 AI 答疑老师';
+}
+// 设置面板里的角色交互
+function aiRoleBindUI(){
+  aiRolesLoad();
+  const tabs=$('ai-role-tabs');
+  if(!tabs) return;
+  const drawTabs=()=>{
+    tabs.innerHTML=AI_ROLES.map(r=>'<button type="button" class="rt'+(r.id===AI_ROLE_CUR?' on':'')+'" data-rid="'+esc(r.id)+'">'
+      +(r.icon||'🎭')+' '+esc(r.name)+'</button>').join('')
+      +'<button type="button" class="rt add" id="ai-role-add">＋ 新增</button>';
+    tabs.querySelectorAll('[data-rid]').forEach(b=>{
+      b.onclick=()=>{ AI_ROLE_CUR=b.dataset.rid; aiRolesSave(); drawTabs(); fillForm(); aiRoleBadge(); };
+    });
+    const add=$('ai-role-add');
+    if(add) add.onclick=()=>{
+      const id='r'+Date.now().toString(36);
+      AI_ROLES.push({id:id,icon:'🎭',name:'新角色',temp:0.7,prompt:'你是一位……（在这里写下你希望 AI 扮演的角色与说话方式）',builtin:0});
+      AI_ROLE_CUR=id; aiRolesSave(); drawTabs(); fillForm(); aiRoleBadge();
+      const n=$('ai-role-name'); if(n){ n.focus(); n.select(); }
+      toast('已新增角色，填好名称与提示词后点「保存角色」',2400);
+    };
+  };
+  const fillForm=()=>{
+    const r=aiRoleCur(); if(!r) return;
+    const n=$('ai-role-name'), p=$('ai-role-prompt'), ta=$('ai-title-ai'), tu=$('ai-title-user');
+    if(n) n.value=r.name||'';
+    if(p) p.value=r.prompt||'';
+    if(ta) ta.value=AI_TITLES.ai||'';
+    if(tu) tu.value=AI_TITLES.user||'';
+  };
+  drawTabs(); fillForm();
+  const ok=$('ai-role-ok');
+  const saveBtn=$('ai-role-save');
+  if(saveBtn) saveBtn.onclick=()=>{
+    const r=aiRoleCur(); if(!r) return;
+    r.name=($('ai-role-name').value||'').trim()||'未命名角色';
+    r.prompt=($('ai-role-prompt').value||'').trim();
+    AI_TITLES={
+      ai:($('ai-title-ai').value||'').trim()||'小老师',
+      user:($('ai-title-user').value||'').trim()||'同学'
+    };
+    aiRolesSave(); drawTabs(); aiRoleBadge();
+    if(ok) ok.textContent='✅ 角色已保存，下次提问即生效';
+  };
+  const del=$('ai-role-del');
+  if(del) del.onclick=()=>{
+    const r=aiRoleCur(); if(!r) return;
+    if(AI_ROLES.length<=1){ toast('至少保留一个角色',2000); return; }
+    if(!confirm('确定删除角色「'+r.name+'」？')) return;
+    AI_ROLES=AI_ROLES.filter(x=>x.id!==r.id);
+    AI_ROLE_CUR=AI_ROLES[0].id;
+    aiRolesSave(); drawTabs(); fillForm(); aiRoleBadge();
+    if(ok) ok.textContent='已删除角色';
+  };
+  aiRoleBadge();
 }
 async function aiCall(path,body,timeoutMs){
   // AI 对话耗时较长，走独立超时（默认 75s），复用 API 线路/share 逻辑
@@ -3276,7 +3993,40 @@ function renderAiSetup(){
     +'<div class="ai-model-pick"><select id="ai-model-pick" aria-label="从模型列表选择"><option value="">— 从「该服务商已发布模型」中选择 —</option></select>'
     +'<button type="button" id="ai-reload" class="btn sm ghost" title="重新加载该服务商的模型列表">🔄 刷新</button></div></div>'
     +'<div class="row ai-base"><label>④ 接口地址（一般自动填好；自定义接口可改）</label><input id="ai-base" placeholder="https://.../v1"></div>'
+    // —— 语音播报设置（本地保存，不上传）——
+    +'<div class="row ai-base" style="border-top:1px dashed var(--line);padding-top:12px;margin-top:6px">'
+    +'<label>⑤ 语音播报（AI 回复后自动朗读，可随时关闭）</label>'
+    +'<label style="display:flex;align-items:center;gap:8px;font-weight:400;margin:4px 0 8px;cursor:pointer">'
+    +'<input type="checkbox" id="ai-tts-on" style="width:18px;height:18px;flex:0 0 auto">'
+    +'<span>开启语音播报</span></label>'
+    +'<label style="font-size:12px;color:var(--sub);margin-bottom:3px">播报音色</label>'
+    +'<select id="ai-tts-voice"><option value="">✨ 自动（挑最自然的中文音色）</option></select>'
+    +'<label style="font-size:12px;color:var(--sub);margin:8px 0 3px">语速 <span id="ai-tts-rate-v">1.0</span>×</label>'
+    +'<input type="range" id="ai-tts-rate" min="0.5" max="1.8" step="0.1" style="width:100%">'
+    +'<p class="hint" id="ai-tts-cur"></p>'
+    +'<p class="hint">设置保存在本机浏览器，不会上传。若听不到声音，请检查设备音量与系统「语音朗读」是否被禁用；音色偏机械或列表为空时，请改用 Edge / Chrome（系统需安装中文语音包），再从上方「推荐音色」里选。</p>'
+    +'</div>'
+    +'<div class="row ai-base" style="border-top:1px dashed var(--line);padding-top:12px;margin-top:6px">'
+    +'<label>⑥ AI 角色设定（可自定义角色、提示词与双方称呼）</label>'
+    +'<div class="ai-role-tabs" id="ai-role-tabs"></div>'
+    +'<label style="font-size:12px;color:var(--sub);margin-bottom:3px">角色名称</label>'
+    +'<input id="ai-role-name" placeholder="如：专业老师">'
+    +'<label style="font-size:12px;color:var(--sub);margin:8px 0 3px">角色提示词（决定 AI 的人设与说话方式，可自由修改）</label>'
+    +'<textarea id="ai-role-prompt" rows="4" placeholder="描述这个角色是谁、什么性格、怎么说话…"></textarea>'
+    +'<div style="display:flex;gap:8px;margin-top:8px">'
+    +'<div style="flex:1;min-width:0"><label style="font-size:12px;color:var(--sub);margin-bottom:3px">你称呼 AI 为</label>'
+    +'<input id="ai-title-ai" placeholder="如：小老师"></div>'
+    +'<div style="flex:1;min-width:0"><label style="font-size:12px;color:var(--sub);margin-bottom:3px">AI 称呼你为</label>'
+    +'<input id="ai-title-user" placeholder="如：同学"></div></div>'
+    +'<p class="hint">提示词只改「人设与语气」；答题格式与安全底线由系统固定追加，不会被覆盖。双方称呼会写进提示词，改完点保存即可。</p>'
+    +'<div style="display:flex;gap:8px;margin-top:8px">'
+    // 全局 .btn 是 display:block;width:100%，在 flex 里会让按钮互相挤压 → 显式改回 auto
+    +'<button class="btn ghost" id="ai-role-del" type="button" style="width:auto;flex:0 0 auto;white-space:nowrap">🗑 删除</button>'
+    +'<button class="btn" id="ai-role-save" type="button" style="width:auto;flex:1 1 auto;white-space:nowrap">保存角色</button></div>'
+    +'<p class="ok" id="ai-role-ok"></p>'
+    +'</div>'
     +'<button class="btn" id="ai-save" type="button">绑定并开始使用</button>'
+    +'<button class="btn ghost" id="ai-tts-test" type="button" style="margin-top:8px">🔊 试听当前音色</button>'
     +'<details class="ai-help"><summary>📖 接入帮助 / 常见问题</summary>'
       +'<p><b>豆包（火山方舟）</b>：到火山引擎控制台→「火山方舟」→「模型推理」→「创建接入点」，复制接入点 ID（形如 <code>ep-2024xxxx-xxxx</code>），把「模型名」填成这个 <code>ep-xxxx</code>。若提示模型不存在，说明该官方模型未对你开放，请用自己的接入点。</p>'
       +'<p><b>智谱 GLM</b>：<code>glm-4-flash</code> 有免费额度，注册即送，最易上手。</p>'
@@ -3285,6 +4035,7 @@ function renderAiSetup(){
       +'<p>调用失败多为：①Key 无效或无余额 ②模型名拼错/账号未开放 ③接口地址不以 <code>https</code> 开头。按提示逐项核对即可。</p>'
     +'</details>'
     +'<p class="ok" id="ai-ok"></p><p class="err" id="ai-err"></p>';
+  aiRoleBindUI();
   const prov=$('ai-prov');
   const fill=()=>{const o=prov.options[prov.selectedIndex];if(!o)return;
     // 动态读取最新 state（刷新列表后 AI_ST.state 会被替换，不能沿用捕获的旧引用）
@@ -3318,26 +4069,185 @@ function renderAiSetup(){
       await aiLoadState();
     }catch(e){$('ai-err').textContent='绑定失败：'+e.message;}
   };
+  // —— 语音播报设置绑定 ——
+  const cfg=ttsCfg();
+  const ttsOn=$('ai-tts-on'), ttsVoice=$('ai-tts-voice'), ttsRate=$('ai-tts-rate'),
+        ttsRateV=$('ai-tts-rate-v'), ttsTest=$('ai-tts-test');
+  if(ttsOn) ttsOn.checked=!!cfg.on;
+  if(ttsRate){ ttsRate.value=String(cfg.rate||1); if(ttsRateV) ttsRateV.textContent=(cfg.rate||1).toFixed(1); }
+  // 音色列表（异步加载 voiceschanged）
+  const fillVoices=()=>{
+    if(!ttsVoice) return;
+    const cur=cfg.voice||'';
+    let h='<option value="">默认（自动选择中文音色）</option>';
+    const zh=ttsZh().slice().sort((a,b)=>ttsScore(b)-ttsScore(a));
+    // ① 推荐音色：与 AiDesk 同款的神经网络音色（自动匹配系统里真正可用的那一个）
+    let g1='';
+    TTS_PRESETS.forEach(p=>{
+      const has=ttsPresetHasLocal(p.k);
+      // 三态：本机有 → 本地免费；本机无但云端支持 → 走云端；云端不支持 → 仅本机，缺失时回退设备默认音
+      const mark = has ? '✅ 本机' : (p.cloud ? '☁ 云端' : '📱 仅本机');
+      g1+='<option value="p:'+p.k+'">'+esc(p.n)+'　'+mark+'</option>';
+    });
+    if(g1) h+='<optgroup label="推荐音色（神经网络 · 最自然）">'+g1+'</optgroup>';
+    // ② 系统里的其他中文音色（机械音排最后并标注）
+    const nat=zh.filter(v=>!/desktop/i.test(v.name||''));
+    const mec=zh.filter(v=>/desktop/i.test(v.name||''));
+    if(nat.length) h+='<optgroup label="系统中文音色">'+nat.map(v=>'<option value="'+esc(v.voiceURI||v.name)+'">'+esc(v.name)+'</option>').join('')+'</optgroup>';
+    if(mec.length) h+='<optgroup label="其他（机械音，不推荐）">'+mec.map(v=>'<option value="'+esc(v.voiceURI||v.name)+'">'+esc(v.name)+'</option>').join('')+'</optgroup>';
+    ttsVoice.innerHTML=h;
+    if(cur) ttsVoice.value=cur;
+    const curEl=$('ai-tts-cur');
+    if(curEl){
+      const psel=(cur||'').indexOf('p:')===0 ? TTS_PRESETS.find(x=>x.k===cur.slice(2)) : null;
+      if(psel){
+        // 选中了某个推荐音色：明确告知走本地还是云端
+        const has=ttsPresetHasLocal(psel.k);
+        curEl.innerHTML='当前音色：<b>'+esc(psel.n)+'</b>　'
+          +(has ? '✅ 本机神经网络音色，朗读走本地（免费、零延迟）'
+           : (psel.cloud ? '☁ 本机没有该音色，朗读走<b>云端 TTS</b>（火山引擎/豆包，手机同样可用）'
+                         : '📱 该音色<b>仅本机可用</b>（云端只提供一女一男两个音色）；本机没有时自动用设备默认中文音朗读'));
+      } else if(cur){
+        // 显式选了某个系统音色
+        const v=ttsPickVoice(cur);
+        curEl.innerHTML = v ? ('当前实际朗读：<b>'+esc(v.name)+'</b>'
+          +(/natural|online|google/i.test(v.name)?'　✅ 神经网络音色'
+            :(/desktop/i.test(v.name)?'　⚠️ 机械音，建议改选上面的推荐音色':''))) : '当前实际朗读：系统默认';
+      } else {
+        // 自动模式
+        curEl.innerHTML = ttsHasGoodLocal()
+          ? '当前为<b>自动</b>：自动挑本机最自然的中文音色。想固定用某个音色，直接选上面的推荐音色。'
+          : '当前为<b>自动</b>：本机没有自然度够用的中文音，已自动改走<b>云端 TTS</b>（手机同样可用）。'
+            +'想固定用某个音色，直接选上面的推荐音色即可。';
+      }
+    }
+  };
+  ttsLoadVoices(fillVoices);
+  const persist=()=>{
+    const c=ttsCfg();
+    c.on=!!(ttsOn&&ttsOn.checked);
+    if(ttsVoice) c.voice=ttsVoice.value||'';
+    if(ttsRate) c.rate=parseFloat(ttsRate.value)||1;
+    ttsSave(c);
+    if(ttsRateV) ttsRateV.textContent=(c.rate||1).toFixed(1);
+  };
+  if(ttsOn) ttsOn.onchange=()=>{
+    ttsUnlockAudio(); persist();
+    if(ttsOn.checked) toast('已开启语音播报，AI 回复后将自动朗读',2400);
+  };
+  if(ttsVoice) ttsVoice.onchange=persist;
+  if(ttsRate) ttsRate.oninput=persist;
+  if(ttsTest) ttsTest.onclick=()=>{
+    persist();
+    ttsUnlockAudio();
+    if(!('speechSynthesis' in window)){ toast('当前浏览器不支持语音播报',2200); return; }
+    ttsLoadVoices(()=>{});
+    // 试听：临时强制朗读一次（不改动已保存的开关状态）
+    const keep=ttsCfg();
+    const c={on:true,voice:keep.voice,rate:keep.rate,pitch:keep.pitch};
+    ttsSave(c);
+    ttsSpeak('你好，我是你的 AI 答疑老师，这是当前的播报音色和语速。');
+    setTimeout(()=>{ try{ ttsSave(keep); }catch(e){} },50);
+  };
 }
 function aiMsg(role,text){
   AI_ST.hist.push({role:role==='user'?'user':'assistant',content:text});
   const box=$('aiMsgs');if(!box)return;
   const div=document.createElement('div');div.className='ai-m '+role;div.textContent=text;
+  if(role==='bot'){
+    // 手动朗读按钮：自动播报被浏览器拦截时的兜底（点按发生在用户手势内，必能出声）
+    const b=document.createElement('button');
+    b.className='ai-spk';b.type='button';b.title='朗读这条回复';b.textContent='🔊 朗读';
+    b.onclick=(ev)=>{ ev.stopPropagation(); ttsUnlockAudio(); ttsSpeak(text); };
+    div.appendChild(b);
+  }
   box.appendChild(div);box.scrollTop=box.scrollHeight;
   return div;
 }
+// —— AI 助手语音输入：复用项目内 Web Speech 识别（与背诵录音/大题语音录入同款）——
+// 交互：点 🎤 开始识别 → 实时转写到输入框与提示条 → 再点一次停止 → 点「发送」提交。
+// 用户反馈"第一次录音时窗口卡崩变白屏然后恢复" → 根因排查：
+//   ① 原实现每次 onresult 都**覆盖** inp.value，且反复 inp.focus() → 移动端频繁重排/滚动，触发渲染卡死；
+//   ② onend 里 setTimeout 自动 aiSend()，与用户手动点发送**竞态**，两次发送同时改写消息区；
+//   ③ 识别过程中用户已把文本发走，onresult 又写回输入框 → 状态错乱。
+// 现改为：增量追加、不自动发送（由用户点发送）、发送前先停麦、限制文本长度、去掉高频 focus。
+let _aiSR=null, _aiFinal='', _aiBase='', _aiBusy=false, _aiTok=0;
+function aiMicToggle(){
+  const btn=$('ai-mic'), inp=$('ai-in'), live=$('ai-live');
+  if(!btn||!inp) return;
+  if(_aiSR){                                   // 正在听 → 停止
+    try{_aiSR.stop();}catch(e){}
+    return;
+  }
+  if(_aiBusy){ toast('正在处理上一段语音，请稍候…',1600); return; }
+  if(!SR){
+    toast('当前浏览器不支持语音识别（推荐 Chrome / Edge，或手机端打开）',2600);
+    return;
+  }
+  let r;
+  try{ r=new SR(); }catch(e){ toast('语音识别初始化失败',2000); return; }
+  r.lang='zh-CN'; r.interimResults=true; r.continuous=true; r.maxAlternatives=1;
+  _aiSR=r; _aiFinal=''; _aiBase=(inp.value||'');
+  const tok=++_aiTok;   // 会话令牌：发送/关闭后旧识别回调一律作废
+  btn.classList.add('on');
+  btn.textContent='⏹';
+  if(live){ live.classList.add('on'); live.textContent='🎤 正在聆听…请说出你的问题，说完再点一次停止'; }
+  r.onresult=e=>{
+    if(_aiTok!==tok) return;   // 本次识别已作废（已发送或已关闭）：不再写回输入框
+    let inter='';
+    for(let k=e.resultIndex;k<e.results.length;k++){
+      const t=e.results[k][0].transcript;
+      if(e.results[k].isFinal) _aiFinal+=t; else inter+=t;
+    }
+    // 增量写回：以「开始识别时的原文 + 已确认文本 + 临时文本」拼接，不覆盖、不重排整页
+    const txt=(_aiBase+_aiFinal+(inter?(' '+inter):'')).trim();
+    if(txt.length>500) return;
+    inp.value=txt;
+    if(live) live.innerHTML='🎤 '+esc(_aiFinal||inter)+'<span style="color:#8a97a6">'+(inter?esc(inter):'')+'</span>';
+  };
+  r.onerror=e=>{
+    if(live) live.innerHTML='⚠️ 识别出错：'+esc(e.error||'未知')+'，可直接打字提问';
+  };
+  r.onend=()=>{
+    if(_aiSR===r) _aiSR=null;
+    btn.classList.remove('on'); btn.textContent='🎤';
+    if(_aiTok!==tok) return;   // 已发送/已作废：保持输入框为「已清空」状态
+    const txt=(inp.value||'').trim();
+    if(live){
+      if(txt&&txt!==_aiBase) live.innerHTML='✅ 已识别并填入输入框，点「发送」提交。（可继续编辑）';
+      else live.innerHTML='⚠️ 没听到内容，可再试一次或直接打字';
+    }
+    _aiBase='';
+  };
+  try{ r.start(); }catch(e){
+    _aiSR=null; btn.classList.remove('on'); btn.textContent='🎤';
+    if(live){ live.classList.add('on'); live.innerHTML='⚠️ 无法启动录音，请检查麦克风权限'; }
+  }
+}
+
 async function aiSend(){
   const inp=$('ai-in');const text=(inp.value||'').trim();
   if(!text||AI_ST.loading)return;
+  // 在用户手势内解锁音频会话：否则 AI 回复（异步返回）后的自动播报会被浏览器拦截 → 表现为"没播报"
+  ttsUnlockAudio();
+  // 发送前先停止语音识别：否则识别回调会继续改写输入框，与消息渲染并发 → 页面卡死/白屏
+  // 关键：先作废本次会话令牌——stop() 是异步的，浏览器仍会把剩余结果回调回来把已清空的输入框重新填满
+  _aiTok++;
+  if(_aiSR){ try{_aiSR.stop();}catch(e){} }
+  _aiSR=null; _aiFinal=''; _aiBase='';
+  const micBtn=$('ai-mic'); if(micBtn){ micBtn.classList.remove('on'); micBtn.textContent='🎤'; }
   inp.value='';
+  const live=$('ai-live'); if(live){ live.classList.remove('on'); live.innerHTML=''; }
   aiMsg('user',text);
   AI_ST.loading=true;
   const th=aiMsg('bot','正在思考…');th.classList.add('think');
   try{
-    const d=await aiCall('/api/ai/chat',{msgs:AI_ST.hist.slice(-12),ctx:{subject:curSubj,unit:curVol,grade:curGrade}});
+    const d=await aiCall('/api/ai/chat',{msgs:AI_ST.hist.slice(-12),ctx:{subject:curSubj,unit:curVol,grade:curGrade},persona:aiPersona()});
     th.textContent=d.reply||'（模型没有返回内容）';th.classList.remove('think');
-    AI_ST.hist[AI_ST.hist.length-1]={role:'assistant',content:d.reply||''};
+    AI_ST.hist[AI_ST.loading?AI_ST.hist.length-1:AI_ST.hist.length-1]={role:'assistant',content:d.reply||''};
     if(AI_ST.state){AI_ST.state.used=d.used;AI_ST.state.quota=d.quota;$('ai-quota').textContent=aiQuotaText(AI_ST.state);}
+    // AI 回复后语音播报（设置里可开关/选音色/调语速）
+    try{ ttsSpeak(d.reply||''); }catch(e){}
   }catch(e){
     let tip='';
     if(e.code==='NOBIND') tip='（请点设置绑定你的大模型 Key）';
@@ -3495,8 +4405,7 @@ async function doLogin(u,p){
   const cb=document.getElementById('li-remember');
   const d = await API.call('/api/login',{u:u,p:p,remember:!!(cb&&cb.checked)});
   CUR_USER = d.u || u;
-  setMember({on:!!d.member,tier:d.member_tier||'',grade:d.member_grade||'',grades:d.member_grades||[]});
-  refreshMember();
+  _withMemberGuard(()=>_applyMember({on:!!d.member,tier:d.member_tier||'',grade:d.member_grade||'',grades:d.member_grades||[]}));
   renderHdrUser(); renderHdrAdmin();
   try{ writeRemember(u,p); }catch(e){}
   // 勾选"记住我"时，服务端会签发长期令牌（HttpOnly Cookie），下次可免密自动登录
@@ -3577,6 +4486,11 @@ var _loadRetry=0;
 
 async function boot(){
   try{ const inv=new URLSearchParams(location.search).get('inv'); if(inv) localStorage.setItem('zb_inv',inv); }catch(e){}
+  // 通过邀请链接进入的访客（未登录/非会员）→ 展示邀请人公开状态卡
+  // 提前发起（不等 1.5s），但结果到达时若用户已登录/已关掉弹窗就不再打扰
+  var _invPending=false;
+  try{ if(new URLSearchParams(location.search).get('inv')) _invPending=true; }catch(e){}
+  if(_invPending) showInvitedCard();
   try{ readRemember(); }catch(e){}
   try{ _mcRestore(); }catch(e){}      // 恢复「我的」页本地缓存（刷新页面也能秒开）
   const wxel=$('wxid');if(wxel)wxel.textContent=WX.id;
@@ -3611,8 +4525,7 @@ async function boot(){
   updateLineLabel();
 
   if(MODE==='offline'){
-    setMember({on:true,tier:'all',grade:'',grades:GRADES.slice()}); // 离线个人版不设限
-    refreshMember();
+    _withOfflineGuard(_applyMemberOffline); // 离线个人版不设限（仅作用于免费内容）
     if(!DATA){ overlay('loginOverlay',true); if(!isCloudHost()){ showSlowTip('无法连接服务端，正在为你切换到 <b>云端直链</b>…'); setTimeout(()=>{ try{window.location.replace(SWITCH_URL);}catch(e){} }, 2500); } else { showDone('此文件是<b>学生版</b>，需配合服务端使用。<br>个人自用请打开“离线个人版”。'); } return; }
     CUR_USER='本地'; enterApp(); return;
   }
@@ -3637,8 +4550,7 @@ async function boot(){
   }
   if(me && me.login){
     CUR_USER = me.u;
-    setMember({on:!!me.member,tier:me.member_tier||'',grade:me.member_grade||'',grades:me.member_grades||[]});
-    refreshMember();
+    _withMemberGuard(()=>_applyMember({on:!!me.member,tier:me.member_tier||'',grade:me.member_grade||'',grades:me.member_grades||[]}));
     renderHdrUser(); renderHdrAdmin(); // 登录态确认即渲染，不等资料下载
     if(me.status!=='approved'){ overlay('loginOverlay',true); showDone('账号 <b>'+esc(me.u)+'</b> 暂未激活，<br>请联系管理员：微信 <b>'+esc(WX.id)+'</b>'); return; }
     // 聚合接口已带回全部云端记录 → 直接灌入，省掉 /api/rec/all 的一次往返
@@ -3657,8 +4569,7 @@ async function boot(){
     }
     // 聚合接口已带回下载权益与申请状态 → 省掉 /api/dl/status 的一次往返
     if(typeof DL_STATE!=='undefined'){
-      DL_STATE={granted:!!me.dl, req:me.dl_req||null};
-      DL_STATE_BOOTSTRAPPED=true;
+      _withDlGuard(()=>_setDlState({granted:!!me.dl, req:me.dl_req||null}));
     }
     // 聚合接口已带回仪表盘数据 → 省掉 /api/dash 的一次往返
     if(me.dash){ _DASH=me.dash; }
@@ -3767,7 +4678,22 @@ $('pay-x').onclick=()=>{ overlay('payOverlay',false); };
 $('pay-back').onclick=()=>{ doLogout(); };
 
 // ============ 打赏解锁资料包（申请码 + 兑换码） ============
-let DL_POLL=null, DL_STATE={granted:false,req:null}, DL_FILES=null, DL_STATE_BOOTSTRAPPED=false;
+let DL_POLL=null, _DL_STATE=Object.freeze({granted:false,req:null}), DL_FILES=null, DL_STATE_BOOTSTRAPPED=false;
+let _DL_GUARD=false;
+// DL_STATE 安全加固（2026-10-28）：冻结对象 + 只读 window 属性 + 受控 setter，
+// 杜绝「DL_STATE.granted=true 骗自己已解锁」的前端篡改；真正解锁只能由服务端回执经 _withDlGuard 写入。
+function _setDlState(d){
+  if(!_DL_GUARD){ console.warn('拒绝非服务端回执发起的下载状态写入'); return; }
+  if(!d||typeof d!=='object') return;
+  _DL_STATE=Object.freeze({granted:!!d.granted, req:d.req||null});
+  DL_STATE_BOOTSTRAPPED=true;
+}
+function _withDlGuard(fn){ _DL_GUARD=true; try{ fn(); } finally{ _DL_GUARD=false; } }
+Object.defineProperty(window,'DL_STATE',{
+  configurable:false, enumerable:true,
+  get(){return _DL_STATE;},
+  set(v){ console.warn('DL_STATE 为只读，禁止直接赋值；下载权益只能由服务端回执经可信路径写入。'); }
+});
 // 思维导图连线美化：贝塞尔曲线 → 直角圆角折线（与打印版一致）
 function mmElbow(svg){
   if(!svg||svg.indexOf('<path')<0) return svg||'';
@@ -3842,7 +4768,7 @@ async function dlRefresh(){
   if(MODE!=='server'||!CUR_USER) return;
   // 启动聚合接口已带回下载权益与申请状态 → 不必再查一次库（约 1 秒）
   if(DL_STATE_BOOTSTRAPPED){ DL_STATE_BOOTSTRAPPED=false; renderDlCard(); return; }
-  try{ const j=await API.call('/api/dl/status'); DL_STATE={granted:!!j.granted,req:j.req||null}; }
+  try{ const j=await API.call('/api/dl/status'); _withDlGuard(()=>_setDlState({granted:!!j.granted,req:j.req||null})); }
   catch(e){ return; }
   renderDlCard();
 }
@@ -3988,7 +4914,7 @@ async function dlRequest(){
   const m=$('dl-msg'); m.className='ov-msg'; m.textContent='提交中…';
   try{
     const j=await API.call('/api/dl/request',{});
-    DL_STATE.req={code:j.code};
+    _withDlGuard(()=>_setDlState({granted:_DL_STATE.granted, req:{code:j.code}}));
     $('dl-req-code').textContent=j.code;
     m.className='ov-msg ok';
     m.textContent='申请已提交！管理员核对收款（备注：'+CUR_USER+'）后，本页将自动解锁';
@@ -4002,7 +4928,7 @@ async function dlRedeem(){
   m.textContent='核销中…';
   try{
     const j=await API.call('/api/dl/redeem',{code:c});
-    DL_STATE.granted=true;
+    _withDlGuard(()=>_setDlState({granted:true, req:_DL_STATE.req}));
     m.className='ov-msg ok'; m.textContent=j.msg||'兑换成功！资料包已解锁';
     renderDlCard();
     setTimeout(()=>{ overlay('dlOverlay',false); },900);
@@ -4014,7 +4940,7 @@ function startDlPoll(){
     if(!CUR_USER||DL_STATE.granted){ clearInterval(DL_POLL); DL_POLL=null; return; }
     try{
       const j=await API.call('/api/dl/status');
-      DL_STATE={granted:!!j.granted,req:j.req||null};
+      _withDlGuard(()=>_setDlState({granted:!!j.granted,req:j.req||null}));
       renderDlCard();
       if(j.granted){ clearInterval(DL_POLL); DL_POLL=null; overlay('dlOverlay',false); }
     }catch(e){}

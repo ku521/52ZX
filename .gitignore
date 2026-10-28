@@ -40,3 +40,24 @@ site/pwa-preview/
 
 # GitHub Pages 静态构建产物（由 build_ghpages.py 生成，发布到 gh-pages 分支）
 gh-pages/
+# —— 云端 TTS 密钥（火山引擎 AppID/AccessToken），禁止入库 ——
+tts_key.json
+# —— 临时诊断脚本（音色逻辑单测，勿入库）——
+_test_voices.js
+_test_dom.js
+# —— 临时诊断脚本与验证截图（勿入库）——
+_cdp_test.js
+_test_persona.py
+_ui_roles.png
+_ui_chat.png
+# —— 邀请/分享功能开发期的临时脚本与截图（勿入库）——
+_fix_*.py
+_cdp_*.js
+_ui_*.png
+_chk_*.js
+_served.html
+_live_served.html
+_card.json
+_stat.json
+# —— Edge CDP 调试配置目录（勿入库）——
+.edge-cdp/
