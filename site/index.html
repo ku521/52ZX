@@ -586,6 +586,12 @@ body{user-select:none;-webkit-user-select:none}input,textarea{user-select:text;-
 .ai-m.bot.think{color:#5c6878;font-style:italic}
 .ai-spk{margin-top:7px;border:1px solid #c3d5ef;background:#fff;color:#1a5fb4;border-radius:13px;padding:2px 10px;font-size:12px;cursor:pointer;line-height:1.6}
 .ai-spk:active{background:#e3ecfa}
+.ai-m{position:relative;touch-action:pan-y;transition:transform .18s ease}
+.ai-m.swiping{transition:none}
+.ai-m.del-removing{opacity:0;transition:transform .18s ease,opacity .18s ease}
+.ai-m-del{position:absolute;top:0;bottom:0;width:64px;display:flex;align-items:center;justify-content:center;background:#e5484d;color:#fff;font-size:15px;border:0;cursor:pointer;z-index:2;opacity:0;pointer-events:none}
+.ai-m.swiping .ai-m-del,.ai-m.del-open .ai-m-del{opacity:1;pointer-events:auto}
+body.dark .ai-m-del{background:#b42329}
 #aiForm{display:flex;gap:8px;padding:12px 14px;border-top:1px solid #e3ebf5;background:#fff;align-items:flex-end;flex-wrap:wrap}
 #aiForm textarea{flex:1;border:1px solid #d7dfea;border-radius:9px;padding:9px 11px;font-size:14px;font-family:inherit;resize:vertical;overflow-y:auto;height:62px;min-height:46px;max-height:200px;box-sizing:border-box;line-height:1.6}
 #aiForm .send{flex:0 0 auto;border:none;background:#1a5fb4;color:#fff;border-radius:9px;padding:0 18px;font-size:14px;cursor:pointer;height:46px}
@@ -4338,10 +4344,83 @@ function renderAiSetup(){
     setTimeout(()=>{ try{ ttsSave(keep); }catch(e){} },50);
   };
 }
+// —— AI 聊天消息：横向滑动删除 ——
+// 交互：按住消息左右拖动 → 短滑（>=48px）停在可删除态并显示 🗑 按钮（点按删除，防误删）；
+//      长滑（>=110px）直接删除；不足阈值回弹。纵向拖动不拦截，仍交还给页面滚动。
+// 删除时同时从 AI_ST.hist 摘掉该条，保证"删掉的消息不会再作为上下文发给模型"。
+let _aiSwipeCur=null, _aiSwipeDocBound=0;
+function aiBindSwipe(el){
+  if(!el||el._aiSwipeBound) return; el._aiSwipeBound=1;
+  const OPEN=48, RM=110, MAX=96;
+  const del=document.createElement('button');
+  del.className='ai-m-del'; del.type='button'; del.title='删除这条消息'; del.textContent='🗑';
+  del.addEventListener('pointerdown',e=>{ e.stopPropagation(); });
+  del.onclick=(ev)=>{ ev.stopPropagation(); rm(); };
+  el.appendChild(del);
+  if(!_aiSwipeDocBound){
+    _aiSwipeDocBound=1;
+    try{ document.addEventListener('pointerdown',e=>{
+      if(_aiSwipeCur && !_aiSwipeCur.el.contains(e.target)){ try{ _aiSwipeCur.close(); }catch(e2){} }
+    }, true); }catch(e){}
+  }
+  const apply=(v)=>{
+    el.style.transform = v ? ('translateX('+v+'px)') : '';
+    if(v<0){ del.style.left=''; del.style.right=(-v)+'px'; }
+    else if(v>0){ del.style.right=''; del.style.left=(-v)+'px'; }
+    else { del.style.left=''; del.style.right=''; }
+  };
+  const close=()=>{ apply(0); el.classList.remove('del-open'); if(_aiSwipeCur&&_aiSwipeCur.el===el) _aiSwipeCur=null; };
+  const rm=()=>{
+    if(el.classList.contains('del-removing')) return;
+    el.classList.add('del-removing','swiping');
+    const _cv=parseFloat(String(el.style.transform||'').replace(/[^-\d.]/g,''))||0;
+    apply(_cv<0 ? -((el.offsetWidth||220)+60) : ((el.offsetWidth||220)+60));
+    setTimeout(()=>{
+      try{ if(el.parentNode) el.parentNode.removeChild(el); }catch(e){}
+      try{ const o=el._aiHistObj; if(o){ const i=AI_ST.hist.indexOf(o); if(i>=0) AI_ST.hist.splice(i,1); } }catch(e){}
+      if(_aiSwipeCur&&_aiSwipeCur.el===el) _aiSwipeCur=null;
+    },190);
+  };
+  let sx=0, sy=0, cur=0, dragging=false, decided=false;
+  el.addEventListener('pointerdown',e=>{
+    if(e.target===del) return;
+    if(e.pointerType==='mouse'&&e.button!==0) return;
+    dragging=true; decided=false; sx=e.clientX; sy=e.clientY; cur=0;
+    el.classList.add('swiping');
+    try{ el.setPointerCapture(e.pointerId); }catch(e2){}
+  });
+  el.addEventListener('pointermove',e=>{
+    if(!dragging) return;
+    const mx=e.clientX-sx, my=e.clientY-sy;
+    if(!decided){
+      if(Math.abs(mx)<6 && Math.abs(my)<6) return;
+      if(Math.abs(my)>=Math.abs(mx)){ dragging=false; el.classList.remove('swiping'); apply(0); return; } // 纵向 → 交还滚动
+      decided=true;
+    }
+    cur=Math.max(-RM, Math.min(RM, mx));
+    apply(cur);
+    if(e.cancelable) e.preventDefault();
+  });
+  const finish=()=>{
+    if(!dragging) return;
+    dragging=false; el.classList.remove('swiping');
+    const v=cur;
+    if(Math.abs(v)>=RM){ rm(); return; }
+    if(Math.abs(v)>=OPEN){
+      if(_aiSwipeCur&&_aiSwipeCur.el!==el){ try{ _aiSwipeCur.close(); }catch(e){} }
+      el.classList.add('del-open'); apply(v<0?-MAX:MAX); _aiSwipeCur={el:el,close:close}; return;
+    }
+    close();
+  };
+  el.addEventListener('pointerup',finish);
+  el.addEventListener('pointercancel',finish);
+}
 function aiMsg(role,text){
-  AI_ST.hist.push({role:role==='user'?'user':'assistant',content:text});
+  const _ho={role:role==='user'?'user':'assistant',content:text};
+  AI_ST.hist.push(_ho);
   const box=$('aiMsgs');if(!box)return;
   const div=document.createElement('div');div.className='ai-m '+role;div.textContent=text;
+  div._aiHistObj=_ho;   // 记录对应的历史对象，删除时可同步摘出上下文
   if(role==='bot'){
     // 手动朗读按钮：自动播报被浏览器拦截时的兜底（点按发生在用户手势内，必能出声）
     const b=document.createElement('button');
@@ -4350,6 +4429,7 @@ function aiMsg(role,text){
     div.appendChild(b);
   }
   box.appendChild(div);box.scrollTop=box.scrollHeight;
+  aiBindSwipe(div);
   return div;
 }
 // —— AI 助手语音输入：复用项目内 Web Speech 识别（与背诵录音/大题语音录入同款）——
@@ -4359,7 +4439,7 @@ function aiMsg(role,text){
 //   ② onend 里 setTimeout 自动 aiSend()，与用户手动点发送**竞态**，两次发送同时改写消息区；
 //   ③ 识别过程中用户已把文本发走，onresult 又写回输入框 → 状态错乱。
 // 现改为：增量追加、不自动发送（由用户点发送）、发送前先停麦、限制文本长度、去掉高频 focus。
-let _aiSR=null, _aiFinal='', _aiBase='', _aiBusy=false, _aiTok=0;
+let _aiSR=null, _aiFinal='', _aiBase='', _aiWritten='', _aiBusy=false, _aiTok=0;
 function aiMicToggle(){
   const btn=$('ai-mic'), inp=$('ai-in'), live=$('ai-live');
   if(!btn||!inp) return;
@@ -4369,6 +4449,8 @@ function aiMicToggle(){
     return;
   }
   if(_aiBusy){ toast('正在处理上一段语音，请稍候…',1600); return; }
+  // 按下录音 → 立即结束正在进行的语音播报（录音与播报不叠加）
+  try{ ttsStop(); }catch(e){}
   if(!SR){
     toast('当前浏览器不支持语音识别（推荐 Chrome / Edge，或手机端打开）',2600);
     return;
@@ -4376,22 +4458,27 @@ function aiMicToggle(){
   let r;
   try{ r=new SR(); }catch(e){ toast('语音识别初始化失败',2000); return; }
   r.lang='zh-CN'; r.interimResults=true; r.continuous=true; r.maxAlternatives=1;
-  _aiSR=r; _aiFinal=''; _aiBase=(inp.value||'');
+  _aiSR=r; _aiFinal=''; _aiBase=(inp.value||''); _aiWritten=_aiBase;
   const tok=++_aiTok;   // 会话令牌：发送/关闭后旧识别回调一律作废
   btn.classList.add('on');
   btn.textContent='⏹';
   if(live){ live.classList.add('on'); live.textContent='🎤 正在聆听…请说出你的问题，说完再点一次停止'; }
   r.onresult=e=>{
     if(_aiTok!==tok) return;   // 本次识别已作废（已发送或已关闭）：不再写回输入框
-    let inter='';
+    let _fin='', inter='';
     for(let k=e.resultIndex;k<e.results.length;k++){
       const t=e.results[k][0].transcript;
-      if(e.results[k].isFinal) _aiFinal+=t; else inter+=t;
+      if(e.results[k].isFinal) _fin+=t; else inter+=t;
     }
-    // 增量写回：以「开始识别时的原文 + 已确认文本 + 临时文本」拼接，不覆盖、不重排整页
+    // 关键：用户手动改过输入框（修正识别错字）→ 以当前内容为新起点，丢弃此前累积的识别文本。
+    // 否则 continuous 模式下下一次回调仍会用旧的 _aiBase+_aiFinal 覆盖写回，把用户的修改"回滚"掉。
+    const _cur=(inp.value||'');
+    if(_cur!==_aiWritten){ _aiBase=_cur; _aiFinal=''; }
+    _aiFinal+=_fin;
+    // 增量写回：以「当前文本 + 已确认文本 + 临时文本」拼接，不覆盖、不重排整页
     const txt=(_aiBase+_aiFinal+(inter?(' '+inter):'')).trim();
     if(txt.length>500) return;
-    inp.value=txt;
+    inp.value=txt; _aiWritten=txt;
     if(live) live.innerHTML='🎤 '+esc(_aiFinal||inter)+'<span style="color:#8a97a6">'+(inter?esc(inter):'')+'</span>';
   };
   r.onerror=e=>{
@@ -4445,6 +4532,7 @@ async function aiSend(){
     const d=await aiCall('/api/ai/chat',_body);
     th.textContent=d.reply||'（模型没有返回内容）';th.classList.remove('think');
     AI_ST.hist[AI_ST.loading?AI_ST.hist.length-1:AI_ST.hist.length-1]={role:'assistant',content:d.reply||''};
+    try{ if(th) th._aiHistObj=AI_ST.hist[AI_ST.hist.length-1]; }catch(e){}
     if(AI_ST.state){AI_ST.state.used=d.used;AI_ST.state.quota=d.quota;$('ai-quota').textContent=aiQuotaText(AI_ST.state);}
     // AI 回复后语音播报（设置里可开关/选音色/调语速）
     if(d.tts_url && _cfg.on && ttsUseCloud(_cfg)){
