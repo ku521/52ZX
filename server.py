@@ -7550,7 +7550,7 @@ class Handler(BaseHTTPRequestHandler):
 
                   [(u, "text"), (ip or "?", "text"), (fp, "text"),
 
-                   (self.headers.get("User-Agent") or "")[:200], (ts, "text")])
+                   ((self.headers.get("User-Agent") or "")[:200], "text"), (ts, "text")])
 
         except Exception:
 
@@ -7566,11 +7566,11 @@ class Handler(BaseHTTPRequestHandler):
 
                       "VALUES (?,?,?,?,?,?,?,?)",
 
-                      [(u, "text"), (inv, "text"), ts, (ip or "?", "text"), (fp, "text"),
+                      [(u, "text"), (inv, "text"), (ts, "text"), (ip or "?", "text"), (fp, "text"),
 
-                       (self.headers.get("User-Agent") or "")[:200], 0,
+                       ((self.headers.get("User-Agent") or "")[:200], "text"), (0, "int"),
 
-                       (inv_reason or ("pending" if invited_by else "inviter_not_found"))])
+                       ((inv_reason or ("pending" if invited_by else "inviter_not_found")), "text")])
 
             except Exception:
 

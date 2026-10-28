@@ -318,6 +318,10 @@ body.dark .nav2 a .nav-badge{box-shadow:0 0 0 2px #16203a}
 .essay .pt li{margin:3px 0}
 /* ===== 会员遮罩 / 水印 ===== */
 .overlay{position:fixed;inset:0;background:linear-gradient(135deg,#23407e,#3b6fe0);z-index:100;display:none;flex-direction:column;align-items:center;justify-content:center;padding:22px;color:#fff;overflow-y:auto;overflow-x:hidden}
+/* 弹窗内容超高时的「安全居中」：内容不足一屏仍垂直居中；超出时可从顶部完整滚动（修复扫码解锁页顶部被裁切） */
+#dlOverlay{justify-content:flex-start}
+#dlOverlay>:first-child{margin-top:auto}
+#dlOverlay>:last-child{margin-bottom:auto}
 .overlay h2{margin:4px 0;font-size:23px}.overlay .sub{font-size:13px;opacity:.92;margin-bottom:14px;text-align:center;max-width:330px;line-height:1.5}
 .ov-box{background:#fff;color:#1f2733;border-radius:16px;padding:18px;width:100%;max-width:360px;box-shadow:0 12px 40px rgba(0,0,0,.28)}
 .ov-box input{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;margin:7px 0;font-size:15px;box-sizing:border-box}
