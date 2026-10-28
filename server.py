@@ -1251,13 +1251,18 @@ def member_active(row):
 
         return True
 
+    # 2026-10-28 加固：原实现直接拿字符串比较且异常时 return True，
+    # 形如 "abc" 的脏数据也满足 "abc" >= "2026-10-28"（字母 > 数字）→ 被误判为永久会员。
+    # 改为先校验日期格式，识别不了就一律视为未开通（fail-closed）。
     try:
 
-        return exp >= time.strftime("%Y-%m-%d")
+        time.strptime(exp[:10], "%Y-%m-%d")
 
     except Exception:
 
-        return True
+        return False
+
+    return exp[:10] >= time.strftime("%Y-%m-%d")
 
 
 
@@ -3983,11 +3988,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def api_rec_set(self):
 
-        uname = self._rec_user()
+        u = self._member_gate()
 
-        if not uname:
+        if not u:
 
             return
+
+        uname = u["username"]
 
         d = self.body_json()
 
@@ -4027,11 +4034,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def api_rec_bulk(self):
 
-        uname = self._rec_user()
+        u = self._member_gate()
 
-        if not uname:
+        if not u:
 
             return
+
+        uname = u["username"]
 
         d = self.body_json()
 
@@ -6152,11 +6161,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def api_recite(self):
 
-        uname = self._rec_user()
+        u = self._member_gate()
 
-        if not uname:
+        if not u:
 
             return
+
+        uname = u["username"]
 
         d = self.body_json()
 
@@ -6333,6 +6344,37 @@ class Handler(BaseHTTPRequestHandler):
     def serve_download_package(self):
 
         return self.serve_download_file()
+
+
+
+    def _member_gate(self):
+
+        """会员功能闸：登录 → 审核通过 → 会员在有效期内，否则 401/403/402。
+
+        2026-10-28 加固：记录写入、背诵等"产生收益/影响排行"的接口只校验登录时，
+        免费账号可以伪造学习数据与邀请奖励，故统一改为走会员闸。"""
+
+        u = self.cur_user()
+
+        if not u:
+
+            self.j(401, {"code": "LOGIN", "msg": "请先登录"})
+
+            return None
+
+        if (u.get("status") or "") != "approved":
+
+            self.j(403, {"code": "PENDING", "msg": "账号待审核"})
+
+            return None
+
+        if not member_active(u):
+
+            self.j(402, {"code": "MEMBER", "msg": "该功能需要开通对应年级会员"})
+
+            return None
+
+        return u
 
 
 

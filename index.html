@@ -396,6 +396,8 @@ linear-gradient(155deg,#0a1330 0%,#111f47 48%,#0a1128 100%)}
 .li-check.wait{color:#8a94a6}
 .overlay.lux .li-check{color:rgba(224,234,255,.72)}
 .overlay.lux .li-check.ok{color:#5ee6a8}
+.li-tip{font-size:11.5px;color:#8a94a6;line-height:1.5;margin:-2px 2px 8px}
+.overlay.lux .li-tip{color:rgba(224,234,255,.5)}
 .overlay.lux .li-check.bad{color:#ff9d92}
 .overlay.lux .li-check.wait{color:rgba(224,234,255,.6)}
 @media(prefers-reduced-motion:reduce){.overlay.lux::before,.overlay.lux::after{animation:none}.overlay.lux .ov-box{animation:none}}
@@ -1087,8 +1089,9 @@ body.dark .ps-sub{color:#a9b7cd}
   <div class="sub log-s">免费注册 · 登录后即可使用全部资料与题库</div>
   <div class="ov-box">
     <div id="li-form">
-      <input id="li-user" placeholder="用户名（建议用手机号/微信名）" autocomplete="username">
+      <input id="li-user" placeholder="用户名（字母开头，6-20 位）" autocomplete="username">
       <div class="li-check" id="li-user-check" aria-live="polite"></div>
+      <div class="li-tip">6 位以上 · 字母开头 · 不含纯数字、3 位连续（123 / abc）或 3 位相同数字（888）</div>
       <input id="li-pass" type="password" placeholder="密码（6位以上）" autocomplete="current-password">
       <input id="li-contact" placeholder="微信 / 手机号（选填）">
       <div class="li-rem">
@@ -1259,52 +1262,91 @@ function pickGrade(g){
   refreshMember();renderVol();volRefresh();renderDash();
 }
 // 会员档位：'' 未开通 / single 单年级（绑定 member_grade） / all 全三册
-// 会员状态：用闭包私有变量 + 只读属性保护，禁止 eval('MEMBER={...}') 直接改写。
-// 2026-10-28 安全加固（针对回归测试发现的 setMember 公开可调用绕过）：
-//   1) MEMBER 仍是 window 只读属性（freeze + defineProperty），无法直接赋值；
-//   2) 真正写入会员状态的入口 _applyMember() 是闭包私有函数，不挂到 window，
-//      外部（控制台 / 注入脚本）拿不到引用，一行 setMember({on:true}) 的绕过被堵死；
-//   3) 即便通过其它路径拿到函数引用，_applyMember 内部强制校验 _MEMBER_GUARD：
-//      该标志只会在"处理服务端 /api/me、/api/bootstrap 真实回执"的同步段内被置位，
-//      攻击者无法伪造调用来源；
-//   4) 离线个人版（云端不可达时加载的本地免费内容）单独走 _applyMemberOffline()，
-//      且仅在合法离线引导流程内生效，同样不暴露给外部。
-let _MEMBER=Object.freeze({on:false,tier:'',grade:'',grades:Object.freeze([])});
-let _MEMBER_GUARD=false, _OFFLINE_GUARD=false;
-function _applyMember(d){
-  if(!_MEMBER_GUARD){ console.warn('拒绝非服务端回执发起的会员状态写入'); return; }
-  if(!d||typeof d!=='object') return;
-  // grades 数组也冻结：Object.freeze 是浅冻结，不冻数组的话 MEMBER.grades.push() 仍可篡改
-  const g=Object.freeze(Array.isArray(d.grades)?d.grades.slice():[]);
-  _MEMBER=Object.freeze({on:!!d.on,tier:d.tier||'',grade:d.grade||'',grades:g});
-  refreshMember();
-}
-function _applyMemberOffline(){
-  if(!_OFFLINE_GUARD){ console.warn('离线会员解锁仅限合法离线引导流程'); return; }
-  _MEMBER=Object.freeze({on:true,tier:'all',grade:'',grades:Object.freeze(GRADES.slice())});
-  refreshMember();
-}
-function _withMemberGuard(fn){ _MEMBER_GUARD=true; try{ fn(); } finally{ _MEMBER_GUARD=false; } }
-function _withOfflineGuard(fn){ _OFFLINE_GUARD=true; try{ fn(); } finally{ _OFFLINE_GUARD=false; } }
-Object.defineProperty(window,'MEMBER',{
-  configurable:false, enumerable:true,
-  get(){return _MEMBER;},
-  set(v){ console.warn('MEMBER 为只读，禁止直接赋值；会员状态只能由服务端回执经可信路径写入。'); }
-});
-function refreshMember(){IS_MEMBER=premFor(curGrade);}
-function premFor(g){
-  if(!MEMBER.on)return false;
-  if(Array.isArray(MEMBER.grades)&&MEMBER.grades.length)return MEMBER.grades.indexOf(g)>=0;
-  if(MEMBER.tier==='single')return (MEMBER.grade||'')===g; // 旧数据兼容
-  return true; // all 全三册
-}
-// 功能门禁：免费=浏览；会员=所在年级可答题/背诵/赋分。未开通时弹付费页并提示。
-function needPerm(actName){
-  if(premFor(curGrade))return true;
-  try{showPayment(CUR_USER);}catch(e){}
-  alert('「'+curGrade+'」的'+actName+'功能还未开通。\n免费版可浏览章节资料；按年级开通会员（¥9.9/年级）即可解锁答题、背诵、赋分等功能。');
-  return false;
-}
+// ===== 会员 / 下载权益状态（2026-10-28 二次加固）=====
+// 上一版把 _applyMember 与 _withMemberGuard 都写成顶层函数声明 —— 普通 <script> 里的
+// 顶层函数会自动挂到 window，控制台把"开关"和"写入函数"配对调用即可改写会员状态。
+// 现在整体收进 IIFE：写入只有一个来源，即闭包内部自己发起的 fetch 回执；
+// 对外只导出只读状态和"重新问服务端"的刷新方法，没有任何"把数据传进来"的入口。
+// 说明：前端门禁只影响体验，真正的付费墙由服务端 strip_free_content / _dl_gate 保证。
+const SEC=(function(){
+  let member=Object.freeze({on:false,tier:'',grade:'',grades:Object.freeze([])});
+  let dl=Object.freeze({granted:false,req:null});
+  function premFor(g){
+    if(!member.on)return false;
+    if(member.grades.length)return member.grades.indexOf(g)>=0;
+    if(member.tier==='single')return (member.grade||'')===g; // 旧数据兼容
+    return true; // all 全三册
+  }
+  function refreshMember(){IS_MEMBER=premFor(curGrade);}
+  // 功能门禁：免费=浏览；会员=所在年级可答题/背诵/赋分。未开通时弹付费页并提示。
+  function needPerm(actName){
+    if(premFor(curGrade))return true;
+    try{showPayment(CUR_USER);}catch(e){}
+    alert('「'+curGrade+'」的'+actName+'功能还未开通。\n免费版可浏览章节资料；按年级开通会员（¥9.9/年级）即可解锁答题、背诵、赋分等功能。');
+    return false;
+  }
+  // grades 数组也冻结：Object.freeze 是浅冻结，不冻数组的话 grades.push() 仍可篡改
+  function commitMember(d){
+    if(!d||typeof d!=='object')return;
+    const g=Object.freeze(Array.isArray(d.grades)?d.grades.slice():[]);
+    member=Object.freeze({on:!!d.on,tier:d.tier||'',grade:d.grade||'',grades:g});
+    refreshMember();
+  }
+  function commitDl(d){
+    if(!d||typeof d!=='object')return;
+    dl=Object.freeze({granted:!!d.granted, req:d.req||null});
+  }
+  Object.defineProperty(window,'MEMBER',{
+    configurable:false, enumerable:true,
+    get(){return member;},
+    set(v){ console.warn('MEMBER 为只读，禁止直接赋值；会员状态只能由服务端回执写入。'); }
+  });
+  Object.defineProperty(window,'DL_STATE',{
+    configurable:false, enumerable:true,
+    get(){return dl;},
+    set(v){ console.warn('DL_STATE 为只读，禁止直接赋值；下载权益只能由服务端回执写入。'); }
+  });
+  function fromMe(d){
+    commitMember({on:!!d.member,tier:d.member_tier||'',grade:d.member_grade||'',grades:d.member_grades||[]});
+  }
+  return {
+    get member(){return member;},
+    get dl(){return dl;},
+    premFor, needPerm, refreshMember,
+    // —— 以下方法只负责"重新向服务端取真值"，不接受外部传入的状态 ——
+    async login(u,p,remember){
+      const d=await API.call('/api/login',{u:u,p:p,remember:!!remember});
+      fromMe(d); return d;
+    },
+    async bootstrap(){
+      const me=await API.call('/api/bootstrap');
+      if(me&&me.login){
+        fromMe(me);
+        commitDl({granted:!!me.dl, req:me.dl_req||null});
+        DL_STATE_BOOTSTRAPPED=true;
+      }
+      return me;
+    },
+    async syncDl(){
+      const j=await API.call('/api/dl/status');
+      commitDl({granted:!!j.granted,req:j.req||null}); return j;
+    },
+    async requestDl(){
+      const j=await API.call('/api/dl/request',{});
+      commitDl({granted:dl.granted, req:{code:j.code}}); return j;
+    },
+    async redeemDl(code){
+      const j=await API.call('/api/dl/redeem',{code:code});
+      commitDl({granted:true, req:dl.req}); return j;
+    },
+    enterOffline(){
+      if(MODE!=='offline') return; // 仅离线引导流程内生效
+      member=Object.freeze({on:true,tier:'all',grade:'',grades:Object.freeze(GRADES.slice())});
+      refreshMember();
+    }
+  };
+})();
+const premFor=SEC.premFor, needPerm=SEC.needPerm, refreshMember=SEC.refreshMember;
 // 免费用户拿到的资料里，答案/解析/赋分要点已被后端剥离（见 server.py: strip_free_content），
 // 这里统一兜底文案，避免出现 "undefined"，也做一层纵深防御：即使前端门禁被绕过也拿不到答案。
 function hasAns(q){return !!(q&&q.answer!==undefined&&q.answer!=='');}
@@ -3392,7 +3434,7 @@ async function ghStartOffline(){
   try{ if(_ghAutoRedirect){ clearTimeout(_ghAutoRedirect); _ghAutoRedirect=null; } }catch(e){}
   MODE='offline';
   try{ if(!DATA) await loadContent(); }catch(e){}
-  _withOfflineGuard(_applyMemberOffline);
+  SEC.enterOffline();
   updateLineLabel();
   if(!DATA){
     overlay('loginOverlay',true);
@@ -4473,9 +4515,8 @@ function toast(msg, ms){
 }
 async function doLogin(u,p){
   const cb=document.getElementById('li-remember');
-  const d = await API.call('/api/login',{u:u,p:p,remember:!!(cb&&cb.checked)});
+  const d = await SEC.login(u,p,!!(cb&&cb.checked));
   CUR_USER = d.u || u;
-  _withMemberGuard(()=>_applyMember({on:!!d.member,tier:d.member_tier||'',grade:d.member_grade||'',grades:d.member_grades||[]}));
   renderHdrUser(); renderHdrAdmin();
   try{ writeRemember(u,p); }catch(e){}
   // 勾选"记住我"时，服务端会签发长期令牌（HttpOnly Cookie），下次可免密自动登录
@@ -4582,7 +4623,7 @@ async function boot(){
   updateLineLabel();
 
   if(MODE==='offline'){
-    _withOfflineGuard(_applyMemberOffline); // 离线个人版不设限（仅作用于免费内容）
+    SEC.enterOffline(); // 离线个人版不设限（仅作用于免费内容）
     if(!DATA){ overlay('loginOverlay',true); if(!isCloudHost()){ offerLineSwitch({ msg:'无法连接服务端，可切换到 <b>云端直链</b> 继续使用。是否切换？', switchText:'切换到云端直链 →', switchUrl:SWITCH_URL, stayText:'留在本页（离线版）', onStay:()=>{} }); } else { showDone('此文件是<b>学生版</b>，需配合服务端使用。<br>个人自用请打开“离线个人版”。'); } return; }
     CUR_USER='本地'; enterApp(); return;
   }
@@ -4590,13 +4631,13 @@ async function boot(){
   // 启动聚合接口：一次 DB 往返拿全「用户信息 + 全部记录 + 下载权益」
   // （Turso 单次往返 0.9~1.8 秒，原先并发打 5~6 次库累计 3~6 秒，是"卡"的主因）
   let me=null;
-  try{ me = await API.call('/api/bootstrap'); }catch(e){}
+  try{ me = await SEC.bootstrap(); }catch(e){}
   // 没有会话时：用 HttpOnly 长期令牌（zb_rt）自动换取会话 —— "记住我"的免密登录
   if(!me || !me.login){
     try{
       const al=await API.call('/api/auto-login');
       if(al && al.login){
-        me=await API.call('/api/bootstrap');
+        me=await SEC.bootstrap();
         if(me && me.login) toast('已自动登录 · '+esc(al.u||''),1600);
       }
     }catch(e){}
@@ -4607,7 +4648,6 @@ async function boot(){
   }
   if(me && me.login){
     CUR_USER = me.u;
-    _withMemberGuard(()=>_applyMember({on:!!me.member,tier:me.member_tier||'',grade:me.member_grade||'',grades:me.member_grades||[]}));
     renderHdrUser(); renderHdrAdmin(); // 登录态确认即渲染，不等资料下载
     if(me.status!=='approved'){ overlay('loginOverlay',true); showDone('账号 <b>'+esc(me.u)+'</b> 暂未激活，<br>请联系管理员：微信 <b>'+esc(WX.id)+'</b>'); return; }
     // 聚合接口已带回全部云端记录 → 直接灌入，省掉 /api/rec/all 的一次往返
@@ -4624,10 +4664,7 @@ async function boot(){
         mergeCloud();
       }catch(e){}
     }
-    // 聚合接口已带回下载权益与申请状态 → 省掉 /api/dl/status 的一次往返
-    if(typeof DL_STATE!=='undefined'){
-      _withDlGuard(()=>_setDlState({granted:!!me.dl, req:me.dl_req||null}));
-    }
+    // 聚合接口已带回下载权益与申请状态 → SEC.bootstrap() 内部已写入，省掉 /api/dl/status 的一次往返
     // 聚合接口已带回仪表盘数据 → 省掉 /api/dash 的一次往返
     if(me.dash){ _DASH=me.dash; }
     // 首屏不等资料：先进应用壳，资料在后台异步补齐
@@ -4695,6 +4732,24 @@ async function _loadContentWithRetry(){
 // ===== 注册账号去重检验：输入停顿后自动查一次，可就打 ✓、被占用给提示 =====
 // 服务端 api_register 一直会拦重复注册（409），这里只是把"这个名字能不能用"提前告诉用户。
 let _uCheckTimer=null, _uCheckName='', _uCheckAvail=null;
+function validateUsername(u){
+  if(!u) return {ok:false, msg:'请输入用户名'};
+  if(u.length < 6)  return {ok:false, msg:'用户名至少 6 位'};
+  if(u.length > 20) return {ok:false, msg:'用户名最多 20 位'};
+  if(!/^[A-Za-z]/.test(u)) return {ok:false, msg:'用户名必须以字母开头'};
+  if(!/^[\w.@-]+$/.test(u)) return {ok:false, msg:'只能含字母、数字、下划线、. 和 -'};
+  if(/^\d+$/.test(u)) return {ok:false, msg:'用户名不能是纯数字'};
+  var s=u.toLowerCase(), i, a, b, c, isD, isL;
+  for(i=0;i+2<s.length;i++){
+    a=s.charCodeAt(i); b=s.charCodeAt(i+1); c=s.charCodeAt(i+2);
+    isD = s[i]>='0'&&s[i]<='9' && s[i+1]>='0'&&s[i+1]<='9' && s[i+2]>='0'&&s[i+2]<='9';
+    isL = s[i]>='a'&&s[i]<='z' && s[i+1]>='a'&&s[i+1]<='z' && s[i+2]>='a'&&s[i+2]<='z';
+    if(isD && a===b && b===c) return {ok:false, msg:'不能有 3 位相同数字（如 888）'};
+    if((isD||isL) && ((b-a===1&&c-b===1)||(a-b===1&&b-c===1)))
+      return {ok:false, msg:'不能有 3 位以上连续数字或字母（如 1234、ABCD）'};
+  }
+  return {ok:true};
+}
 function setUCheck(txt,cls){
   const el=$('li-user-check'); if(!el) return;
   el.textContent=txt||'';
@@ -4704,6 +4759,9 @@ async function checkUserName(force){
   const inp=$('li-user'); if(!inp) return;
   const u=inp.value.trim();
   if(!u){ _uCheckName=''; _uCheckAvail=null; setUCheck(''); return; }
+  // 先本地格式校验：不合格直接提示，不再打服务端
+  var vf=validateUsername(u);
+  if(!vf.ok){ _uCheckName=u; _uCheckAvail=false; setUCheck(vf.msg,'bad'); return; }
   if(!force && u===_uCheckName && _uCheckAvail!==null) return;   // 同一个名字已查过
   _uCheckName=u; _uCheckAvail=null;
   setUCheck('检查中…','wait');
@@ -4738,6 +4796,8 @@ $('li-reg').onclick=async()=>{
   const u=$('li-user').value.trim(), p=$('li-pass').value, c=$('li-contact').value.trim(), m=$('li-msg');
   m.className='ov-msg';
   if(!u||!p){ m.textContent='请填写用户名和密码'; return; }
+  var vf=validateUsername(u);
+  if(!vf.ok){ m.textContent=vf.msg; return; }
   if(p.length<6){ m.textContent='密码至少 6 位'; return; }
   // 账号去重：已确认被占用就直接拦下（服务端 409 仍是最终把关，防并发竞态）
   if(u!==_uCheckName || _uCheckAvail===null){ await checkUserName(true); }
@@ -4768,22 +4828,9 @@ $('pay-x').onclick=()=>{ overlay('payOverlay',false); };
 $('pay-back').onclick=()=>{ doLogout(); };
 
 // ============ 打赏解锁资料包（申请码 + 兑换码） ============
-let DL_POLL=null, _DL_STATE=Object.freeze({granted:false,req:null}), DL_FILES=null, DL_STATE_BOOTSTRAPPED=false;
-let _DL_GUARD=false;
-// DL_STATE 安全加固（2026-10-28）：冻结对象 + 只读 window 属性 + 受控 setter，
-// 杜绝「DL_STATE.granted=true 骗自己已解锁」的前端篡改；真正解锁只能由服务端回执经 _withDlGuard 写入。
-function _setDlState(d){
-  if(!_DL_GUARD){ console.warn('拒绝非服务端回执发起的下载状态写入'); return; }
-  if(!d||typeof d!=='object') return;
-  _DL_STATE=Object.freeze({granted:!!d.granted, req:d.req||null});
-  DL_STATE_BOOTSTRAPPED=true;
-}
-function _withDlGuard(fn){ _DL_GUARD=true; try{ fn(); } finally{ _DL_GUARD=false; } }
-Object.defineProperty(window,'DL_STATE',{
-  configurable:false, enumerable:true,
-  get(){return _DL_STATE;},
-  set(v){ console.warn('DL_STATE 为只读，禁止直接赋值；下载权益只能由服务端回执经可信路径写入。'); }
-});
+// DL_STATE 的只读 window 属性与状态写入已并入文件顶部 SEC 闭包（见「会员 / 下载权益状态」段）：
+// 这里只保留轮询句柄与"启动聚合接口已带回下载权益"的标记，避免重复查库。
+let DL_POLL=null, DL_FILES=null, DL_STATE_BOOTSTRAPPED=false;
 // 思维导图连线美化：贝塞尔曲线 → 直角圆角折线（与打印版一致）
 function mmElbow(svg){
   if(!svg||svg.indexOf('<path')<0) return svg||'';
@@ -4858,7 +4905,7 @@ async function dlRefresh(){
   if(MODE!=='server'||!CUR_USER) return;
   // 启动聚合接口已带回下载权益与申请状态 → 不必再查一次库（约 1 秒）
   if(DL_STATE_BOOTSTRAPPED){ DL_STATE_BOOTSTRAPPED=false; renderDlCard(); return; }
-  try{ const j=await API.call('/api/dl/status'); _withDlGuard(()=>_setDlState({granted:!!j.granted,req:j.req||null})); }
+  try{ const j=await SEC.syncDl(); }
   catch(e){ return; }
   renderDlCard();
 }
@@ -5002,8 +5049,7 @@ function renderDlInvite(){
 async function dlRequest(){
   const m=$('dl-msg'); m.className='ov-msg'; m.textContent='提交中…';
   try{
-    const j=await API.call('/api/dl/request',{});
-    _withDlGuard(()=>_setDlState({granted:_DL_STATE.granted, req:{code:j.code}}));
+    const j=await SEC.requestDl();
     $('dl-req-code').textContent=j.code;
     m.className='ov-msg ok';
     m.textContent='申请已提交！管理员核对收款（备注：'+CUR_USER+'）后，本页将自动解锁';
@@ -5016,8 +5062,7 @@ async function dlRedeem(){
   if(!c){ m.textContent='请输入兑换码'; return; }
   m.textContent='核销中…';
   try{
-    const j=await API.call('/api/dl/redeem',{code:c});
-    _withDlGuard(()=>_setDlState({granted:true, req:_DL_STATE.req}));
+    const j=await SEC.redeemDl(c);
     m.className='ov-msg ok'; m.textContent=j.msg||'兑换成功！资料包已解锁';
     renderDlCard();
     setTimeout(()=>{ overlay('dlOverlay',false); },900);
@@ -5028,8 +5073,7 @@ function startDlPoll(){
   DL_POLL=setInterval(async()=>{
     if(!CUR_USER||DL_STATE.granted){ clearInterval(DL_POLL); DL_POLL=null; return; }
     try{
-      const j=await API.call('/api/dl/status');
-      _withDlGuard(()=>_setDlState({granted:!!j.granted,req:j.req||null}));
+      const j=await SEC.syncDl();
       renderDlCard();
       if(j.granted){ clearInterval(DL_POLL); DL_POLL=null; overlay('dlOverlay',false); }
     }catch(e){}
