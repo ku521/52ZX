@@ -2388,29 +2388,34 @@ function mineInviteLink(){
 }
 function copyMineInvite(){
   const le=$('mine-inv-link'); if(!le) return;
-  const t=le.value||'';
+  const t=(le.value||'').trim();
   if(!t){ toast('请先登录后再复制',1800); return; }
-  // 旧内核兜底：临时 textarea + execCommand（必须在用户手势内同步执行）
-  let ok=false;
-  try{
-    const ta=document.createElement('textarea');
-    ta.value=t; ta.setAttribute('readonly','');
-    ta.style.cssText='position:fixed;left:-9999px;top:0;opacity:0';
-    document.body.appendChild(ta);
-    ta.select(); ta.setSelectionRange(0,t.length);
-    ok=document.execCommand('copy');
-    document.body.removeChild(ta);
-  }catch(e){ ok=false; }
-  if(ok){ toast('邀请链接已复制 ✓',1800); return; }
-  // 现代接口（需安全上下文 / 用户手势）
+  // 1) 现代异步剪贴板优先：安全上下文 + 用户手势（本次点击即手势）。
+  //    必须优先于 execCommand —— 后者在部分内核 / iframe 中会误报“复制成功”却未真正写入，
+  //    正是“复制不到”的根因；异步接口失败走 reject 而非假成功，便于正确兜底。
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(t).then(
       ()=>toast('邀请链接已复制 ✓',1800),
-      ()=>{ try{ le.focus(); le.select(); }catch(e){} toast('已选中链接，请长按或按 Ctrl+C 复制',2800); });
-  }else{
-    try{ le.focus(); le.select(); }catch(e){}
-    toast('已选中链接，请长按或按 Ctrl+C 复制',2800);
+      ()=>copyMineInviteFallback(t,le));
+    return;
   }
+  copyMineInviteFallback(t,le);
+}
+function copyMineInviteFallback(t,le){
+  // 2) 兜底：临时输入框 + execCommand（旧内核 / 非安全上下文 / iframe 内）
+  try{
+    const ta=document.createElement('input');
+    ta.value=t; ta.setAttribute('readonly','');
+    ta.style.cssText='position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select(); ta.setSelectionRange(0,t.length);
+    const ok=document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(ok){ toast('邀请链接已复制 ✓',1800); return; }
+  }catch(e){}
+  // 3) 最后兜底：选中输入框，引导用户长按 / Ctrl+C 手动复制
+  try{ le.focus(); le.select(); le.setSelectionRange(0,t.length); }catch(e){}
+  toast('已选中链接，请长按或按 Ctrl+C 复制',3000);
 }
 async function renderMineInvite(){
   const le=$('mine-inv-link');
@@ -2430,9 +2435,16 @@ async function renderMineInvite(){
     if(tb){
       tb.innerHTML=(j.tiers||[]).map(function(t){
         const need=t.need||1, cur=Math.min(valid,need), pct=Math.min(100,Math.round(cur/need*100));
-        return '<div class="inv-tier inv-tier-lite '+(t.reached?'ok':'')+'">'
-          +'<div class="inv-tier-h"><span>'+(t.reached?'✅ ':'🔒 ')+esc(t.label)+'</span><b>'+valid+'/'+need+'</b></div>'
-          +'<div class="bar"><i style="width:'+pct+'%"></i></div>'
+        const reached=!!t.reached;
+        // 已是会员：邀请阶梯权益（下载 / 年级会员 / 三年全三册）自动视为已解锁，显示「解锁」而非灰锁
+        const byMem=!reached && !!(window.MEMBER&&window.MEMBER.on);
+        const cls=reached||byMem?'ok':'';
+        const icon=reached?'✅':(byMem?'🔓':'🔒');
+        const tag=reached?'已达成':(byMem?'解锁':'');
+        return '<div class="inv-tier inv-tier-lite '+cls+'">'
+          +'<div class="inv-tier-h"><span>'+icon+' '+esc(t.label)+'</span><b>'+valid+'/'+need+'</b></div>'
+          +(tag?'<div style="font-size:11.5px;color:#1a8a4a;margin:-2px 0 4px">'+tag+(byMem?' · 你已是会员，已享此权益':'')+'</div>':'')+
+          '<div class="bar"><i style="width:'+pct+'%"></i></div>'
           +'<div class="inv-tier-d">'+esc(t.desc||'')+'</div></div>';
       }).join('');
     }
