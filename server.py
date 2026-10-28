@@ -2390,6 +2390,34 @@ def reg_mark(ip: str):
         _REG_HITS.setdefault(ip, []).append(time.time())
 
 
+_CHECK_HITS = {}          # ip -> [账号可用性查询时间戳]
+
+
+def check_user_too_many(ip: str) -> bool:
+
+    """账号可用性查询限流：单 IP 每分钟最多 30 次。
+
+    防止被用来批量枚举账号占用，也避免打爆云库（Turso 单次往返 0.9~1.8 秒）。
+
+    """
+
+    now = time.time()
+
+    with _LOCK:
+
+        arr = [t for t in _CHECK_HITS.get(ip, []) if now - t < 60]
+
+        _CHECK_HITS[ip] = arr
+
+        if len(arr) >= 30:
+
+            return True
+
+        arr.append(now)
+
+        return False
+
+
 
 
 
@@ -3203,6 +3231,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.j(200, {"ok": True, "mode": "server", "price": PRICE,
 
                                     "wx": WX_NAME, "area": WX_AREA})
+
+            if path == "/api/check-user":
+
+                return self.api_check_user()
 
             if path == "/api/auto-login":
 
@@ -7347,6 +7379,40 @@ class Handler(BaseHTTPRequestHandler):
 
 
     # ---------- 注册 ----------
+
+    def api_check_user(self):
+
+        """注册前的账号去重检验（公开接口，供注册框实时显示 ✓ / ✗）。
+
+        判定规则与 api_register 完全一致：同一 USER_RE + 同一 get_user()，
+        因此「✓ 可用」= 用这个名字提交注册一定不会撞名；「✗ 已被占用」= 必定被 409 拦下。
+        只回传"是否存在"，不回传会员/审核等任何其它信息。
+
+        """
+
+        qs = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+
+        u = (qs.get("u") or [""])[0].strip()
+
+        if not u:
+
+            return self.j(200, {"ok": True, "available": False, "reason": "empty"})
+
+        if not USER_RE.match(u):
+
+            return self.j(200, {"ok": True, "available": False, "reason": "format",
+
+                                "msg": "用户名 2-20 位，可用中文/字母/数字/下划线"})
+
+        if check_user_too_many(self.client_ip()):
+
+            return self.j(429, {"ok": False, "msg": "查询过于频繁，请稍后再试"})
+
+        exists = get_user(u) is not None
+
+        return self.j(200, {"ok": True, "available": (not exists),
+
+                            "reason": ("taken" if exists else "free")})
 
     def api_register(self, ip):
 

@@ -2,13 +2,13 @@
 <html lang="zh-CN"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="52自学">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#3b6fe0">
 
-<link rel="icon" type="image/png" href="/favicon-32.png"><title>高中·文综（政史地生）加油站 · 52ZX吾爱自学</title>
+<link rel="icon" type="image/png" href="favicon-32.png"><title>高中·文综（政史地生）加油站 · 52ZX吾爱自学</title>
 <script>
 /* 注册 Service Worker：离线外壳 + 静态缓存。
  * 延后到 load 事件后注册，避免与首屏资源争抢带宽、拖慢首屏。
@@ -16,7 +16,7 @@
  */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('/sw.js').catch(function (e) {
+    navigator.serviceWorker.register('sw.js').catch(function (e) {
       /* 注册失败不影响主流程，静默降级为普通网页 */
       if (window.console && console.debug) console.debug('[sw] 注册失败', e);
     });
@@ -388,6 +388,16 @@ linear-gradient(155deg,#0a1330 0%,#111f47 48%,#0a1128 100%)}
 .li-rem .li-clear{color:#b26a00;text-decoration:underline;cursor:pointer;font-size:12px;white-space:nowrap;background:none;border:0;padding:0}
 .overlay.lux .li-rem{color:rgba(224,234,255,.72)}
 .overlay.lux .li-rem .li-clear{color:#ffc46b}
+/* 注册账号去重检验的状态行 */
+.li-check{font-size:12.5px;line-height:1.4;margin:-2px 2px 2px;min-height:17px;opacity:0;transition:opacity .18s}
+.li-check.show{opacity:1}
+.li-check.ok{color:#12a150}
+.li-check.bad{color:#d33a2c}
+.li-check.wait{color:#8a94a6}
+.overlay.lux .li-check{color:rgba(224,234,255,.72)}
+.overlay.lux .li-check.ok{color:#5ee6a8}
+.overlay.lux .li-check.bad{color:#ff9d92}
+.overlay.lux .li-check.wait{color:rgba(224,234,255,.6)}
 @media(prefers-reduced-motion:reduce){.overlay.lux::before,.overlay.lux::after{animation:none}.overlay.lux .ov-box{animation:none}}
 /* 打赏解锁资料包 */
 .dl-code{display:flex;align-items:center;justify-content:center;gap:12px;background:rgba(255,255,255,.06);border:1px dashed rgba(255,255,255,.28);border-radius:12px;padding:10px;margin:10px 0;color:rgba(226,235,255,.8);font-size:13.5px}
@@ -790,7 +800,7 @@ body.dark .ps-sub{color:#a9b7cd}
 
 </style></head>
 <body>
-<header><div class="hrow"><div class="hmain"><img class="hlogo" src="/logo-brand.png" alt="52自学"><div class="htxt"><h1>高中·文综（政史地生）加油站<span class="sub-t">——52ZX(吾爱自学)</span></h1><div class="s">历史/地理/政治/生物 · 资料/导图/知识点/路线 · 题库(单元练·模拟考·大题)</div></div></div><div class="hacts"><a class="u hbtn" id="hdrAdmin" target="_blank" rel="noopener" style="display:none;cursor:pointer" title="管理后台"><img class="hicon" src="/img/img-admin.png" alt="后台"></a><button id="hdrRefresh" class="u hbtn" type="button" title="刷新页面">🔄</button><button id="themeToggle" class="u hbtn" type="button" title="切换深色 / 浅色模式">🌙</button><span class="u" id="hdrUser"></span></div></div></header>
+<header><div class="hrow"><div class="hmain"><img class="hlogo" src="logo-brand.png" alt="52自学"><div class="htxt"><h1>高中·文综（政史地生）加油站<span class="sub-t">——52ZX(吾爱自学)</span></h1><div class="s">历史/地理/政治/生物 · 资料/导图/知识点/路线 · 题库(单元练·模拟考·大题)</div></div></div><div class="hacts"><a class="u hbtn" id="hdrAdmin" target="_blank" rel="noopener" style="display:none;cursor:pointer" title="管理后台"><img class="hicon" src="img/img-admin.png" alt="后台"></a><button id="hdrRefresh" class="u hbtn" type="button" title="刷新页面">🔄</button><button id="themeToggle" class="u hbtn" type="button" title="切换深色 / 浅色模式">🌙</button><span class="u" id="hdrUser"></span></div></div></header>
 
 <div class="navwrap" id="navwrap">
   <div class="nav-grade" id="nav-grade"><span class="ng-label">年级</span></div>
@@ -1073,11 +1083,12 @@ body.dark .ps-sub{color:#a9b7cd}
 <!-- 登录 / 注册 遮罩 -->
 <div class="overlay lux" id="loginOverlay">
   <div class="ov-brand">52ZX · 吾爱自学</div>
-  <h2 class="log-t"><img class="hlogo" src="/logo-brand.png" alt="52自学"><span>高中·文综（政史地生）加油站</span></h2>
+  <h2 class="log-t"><img class="hlogo" src="logo-brand.png" alt="52自学"><span>高中·文综（政史地生）加油站</span></h2>
   <div class="sub log-s">免费注册 · 登录后即可使用全部资料与题库</div>
   <div class="ov-box">
     <div id="li-form">
       <input id="li-user" placeholder="用户名（建议用手机号/微信名）" autocomplete="username">
+      <div class="li-check" id="li-user-check" aria-live="polite"></div>
       <input id="li-pass" type="password" placeholder="密码（6位以上）" autocomplete="current-password">
       <input id="li-contact" placeholder="微信 / 手机号（选填）">
       <div class="li-rem">
@@ -1105,14 +1116,14 @@ body.dark .ps-sub{color:#a9b7cd}
   </div>
   <div class="login-extra hide" id="leContact">
     <div class="le">
-      <img src="/img/img-wx.png" alt="联系管理员二维码">
+      <img src="img/img-wx.png" alt="联系管理员二维码">
       <b>联系管理员</b>
       <span>微信：鑫辰<br>使用问题 · 售后都找他</span>
     </div>
   </div>
   <div class="login-extra hide" id="lePay">
     <div class="le">
-      <img src="/img/img-pay.png" alt="打赏二维码">
+      <img src="img/img-pay.png" alt="打赏二维码">
       <b>打赏支持</b>
       <span>扫码自愿打赏<br>感谢你的支持 ❤</span>
     </div>
@@ -1171,7 +1182,7 @@ body.dark .ps-sub{color:#a9b7cd}
       <button type="button" class="pay-tier" data-tier="全三册" data-price="16.9"><b>全三册版</b><span>¥16.9</span><i>高一+高二+高三 全科</i></button>
     </div>
     <div class="pay-qr">
-      <img class="qr" src="/img/img-qr.png" alt="收款码">
+      <img class="qr" src="img/img-qr.png" alt="收款码">
       <div class="pay-steps">
         <div class="pstep"><i>①</i><div>微信扫码支付 <b id="payPrice">9.9 元</b>（<span id="payTierName2">单年级版</span>）<span class="ps-sub">支付时备注用户名：<b id="payUser2"></b>，方便老师核对</span></div></div>
         <div class="pstep"><i>②</i><div>管理员收到款后后台开通（当前选择：<b id="payTierName">单年级</b>），刷新即解锁。<span class="ps-sub">已有单年级？再付 ¥9.9 续约即自动升级全三册；直接开三册选 ¥16.9 更划算</span></div></div>
@@ -4403,7 +4414,7 @@ async function decodeGzipB64(txt){
   }
 }
 function renderHdrUser(){
-  document.getElementById('hdrUser').innerHTML = '<img class="hicon avatar" src="/img/img-avatar.png" alt=""> ' + CUR_USER + ' <button onclick="doLogout()">退出</button>';
+  document.getElementById('hdrUser').innerHTML = '<img class="hicon avatar" src="img/img-avatar.png" alt=""> ' + CUR_USER + ' <button onclick="doLogout()">退出</button>';
 }
 function renderHdrAdmin(){
   const ha=document.getElementById('hdrAdmin');
@@ -4452,7 +4463,7 @@ function initTheme(){
     btn.textContent=on?'☀️':'🌙'; };
 }
 function showDone(txt){ $('li-form').classList.add('hide'); $('li-done').classList.remove('hide'); if(txt) $('li-done-txt').innerHTML=txt; }
-function showForm(){ $('li-form').classList.remove('hide'); $('li-done').classList.add('hide'); }
+function showForm(){ $('li-form').classList.remove('hide'); $('li-done').classList.add('hide'); const c=$('li-user-check'); if(c){ c.textContent=''; c.className='li-check'; } }
 function toast(msg, ms){
   ms = ms || 1800;
   let t = document.getElementById('zb-toast');
@@ -4681,6 +4692,36 @@ async function _loadContentWithRetry(){
 }
 
 // 登录 / 注册 事件
+// ===== 注册账号去重检验：输入停顿后自动查一次，可就打 ✓、被占用给提示 =====
+// 服务端 api_register 一直会拦重复注册（409），这里只是把"这个名字能不能用"提前告诉用户。
+let _uCheckTimer=null, _uCheckName='', _uCheckAvail=null;
+function setUCheck(txt,cls){
+  const el=$('li-user-check'); if(!el) return;
+  el.textContent=txt||'';
+  el.className='li-check'+(txt?' show':'')+(cls?' '+cls:'');
+}
+async function checkUserName(force){
+  const inp=$('li-user'); if(!inp) return;
+  const u=inp.value.trim();
+  if(!u){ _uCheckName=''; _uCheckAvail=null; setUCheck(''); return; }
+  if(!force && u===_uCheckName && _uCheckAvail!==null) return;   // 同一个名字已查过
+  _uCheckName=u; _uCheckAvail=null;
+  setUCheck('检查中…','wait');
+  try{
+    const j=await API.call('/api/check-user?u='+encodeURIComponent(u));
+    if(inp.value.trim()!==u) return;                              // 期间又改了，丢弃本次结果
+    if(j && j.reason==='format'){ setUCheck(j.msg||'用户名格式不正确','bad'); _uCheckAvail=false; return; }
+    if(j && j.available){ setUCheck('✓ 该账号可以注册','ok'); _uCheckAvail=true; }
+    else { setUCheck('✗ 该账号已被注册，可直接登录或换一个','bad'); _uCheckAvail=false; }
+  }catch(e){
+    setUCheck(''); _uCheckAvail=null;                            // 网络异常不打扰，提交时服务端仍会兜底
+  }
+}
+(function(){
+  const inp=$('li-user'); if(!inp) return;
+  inp.addEventListener('input',()=>{ clearTimeout(_uCheckTimer); _uCheckTimer=setTimeout(()=>checkUserName(),600); });
+  inp.addEventListener('blur',()=>{ clearTimeout(_uCheckTimer); checkUserName(); });
+})();
 $('li-login').onclick=async()=>{
   const u=$('li-user').value.trim(), p=$('li-pass').value, m=$('li-msg');
   m.className='ov-msg';
@@ -4698,6 +4739,9 @@ $('li-reg').onclick=async()=>{
   m.className='ov-msg';
   if(!u||!p){ m.textContent='请填写用户名和密码'; return; }
   if(p.length<6){ m.textContent='密码至少 6 位'; return; }
+  // 账号去重：已确认被占用就直接拦下（服务端 409 仍是最终把关，防并发竞态）
+  if(u!==_uCheckName || _uCheckAvail===null){ await checkUserName(true); }
+  if(u===_uCheckName && _uCheckAvail===false){ m.textContent='该账号已被注册，请直接登录或换一个'; return; }
   m.textContent='提交中…';
   try{
     await API.call('/api/register',{u:u,p:p,phone:c,inv:(function(){try{return localStorage.getItem('zb_inv')||''}catch(e){return ''}})()});

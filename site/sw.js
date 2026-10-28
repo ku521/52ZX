@@ -8,25 +8,25 @@
  *
  * 缓存版本：改动缓存策略时递增 CACHE_VER，旧缓存会被 activate 阶段自动清理。
  */
-const CACHE_VER = 'v1';
+const CACHE_VER = 'v2';
 const SHELL_CACHE = 'zb-shell-' + CACHE_VER;
 const ASSET_CACHE = 'zb-asset-' + CACHE_VER;
 
 /* 应用外壳：安装时预缓存，保证断网首启也有完整界面 */
 const SHELL_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/apple-touch-icon.png',
-  '/favicon-32.png',
-  '/logo-brand.png',
-  '/img/img-avatar.png',
-  '/img/img-admin.png',
-  '/img/img-pay.png',
-  '/img/img-qr.png',
-  '/img/img-wx.png',
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './icon-192.png',
+  './icon-512.png',
+  './apple-touch-icon.png',
+  './favicon-32.png',
+  './logo-brand.png',
+  './img/img-avatar.png',
+  './img/img-admin.png',
+  './img/img-pay.png',
+  './img/img-qr.png',
+  './img/img-wx.png',
 ];
 
 /* 绝不能缓存的路径前缀（鉴权 / 票据 / 权益 / 下载） */
@@ -60,8 +60,17 @@ self.addEventListener('message', (e) => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
+/* SW 作用域前缀：云端部署为 '/'，GitHub Pages 子路径部署为 '/52ZX/'。
+ * 判路径前先剥掉该前缀，使 NEVER_CACHE（鉴权/票据/权益/下载）规则在两种部署下完全一致。 */
+const SCOPE_PATH = new URL(self.registration.scope).pathname;
+function relPath(pathname){
+  if(SCOPE_PATH && SCOPE_PATH !== '/' && pathname.indexOf(SCOPE_PATH) === 0){
+    return '/' + pathname.slice(SCOPE_PATH.length);
+  }
+  return pathname;
+}
 function isNeverCache(url) {
-  const p = url.pathname;
+  const p = relPath(url.pathname);
   return NEVER_CACHE.some((pre) => p === pre || p.startsWith(pre));
 }
 
@@ -80,11 +89,11 @@ self.addEventListener('fetch', (e) => {
       fetch(req)
         .then((r) => {
           const copy = r.clone();
-          caches.open(SHELL_CACHE).then((c) => c.put('/index.html', copy)).catch(() => {});
+          caches.open(SHELL_CACHE).then((c) => c.put('./index.html', copy)).catch(() => {});
           return r;
         })
-        .catch(() => caches.match('/index.html', { ignoreSearch: true })
-          .then((hit) => hit || caches.match('/'))
+        .catch(() => caches.match('./index.html', { ignoreSearch: true })
+          .then((hit) => hit || caches.match('./'))
           .then((hit) => hit || new Response(
             '<meta charset="utf-8"><h3 style="font-family:sans-serif;padding:24px">离线中，请联网后重试</h3>',
             { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
