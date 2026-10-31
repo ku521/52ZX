@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#3b6fe0">
 
 <link rel="icon" type="image/png" href="favicon-32.png"><title>高中·文综（政史地生）加油站 · 52ZX吾爱自学</title>
+<script>window.__GH_STATIC__=true;window.__GH_CLOUD__="https://52zx.app.workbuddy.host/?sharecode=E2G3MZIBK2";window.__API_BASES__=["https://52zx.app.workbuddy.host"];</script>
 <script>
 /* 注册 Service Worker：离线外壳 + 静态缓存。
  * 延后到 load 事件后注册，避免与首屏资源争抢带宽、拖慢首屏。
@@ -1260,7 +1261,7 @@ var _lsOK=(function(){try{var k='__zb_ls_probe';localStorage.setItem(k,'1');loca
 function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 function lsSet(k,v){try{if(_lsOK)localStorage.setItem(k,v);}catch(e){}}
 function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
-function _showFatal(msg,loc){try{var el=document.getElementById('zbFatal');if(!el){el=document.createElement('div');el.id='zbFatal';el.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:#b00020;color:#fff;font:12px/1.5 Consolas,monospace;padding:8px 10px;border-radius:8px;white-space:pre-wrap;max-height:60%;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)';document.body.appendChild(el);}el.textContent+=(loc?('['+loc+'] '):'')+msg+'\n';}catch(e){}}
+function _showFatal(msg,loc){try{var el=document.getElementById('zbFatal');if(!el){el=document.createElement('div');el.id='zbFatal';el.style.cssText='position:fixed;left:8px;right:8px;bottom:calc(80px + env(safe-area-inset-bottom,0px));z-index:99990;background:#b00020;color:#fff;font:12px/1.5 Consolas,monospace;padding:8px 30px 8px 10px;border-radius:8px;white-space:pre-wrap;max-height:45%;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)';var cb=document.createElement('div');cb.textContent='×';cb.style.cssText='position:absolute;top:1px;right:8px;cursor:pointer;font-size:16px;line-height:1;opacity:.85';cb.onclick=function(){try{el.style.display='none';}catch(e){}};el.appendChild(cb);var tx=document.createElement('div');tx.id='zbFatalTxt';el.appendChild(tx);document.body.appendChild(el);}var t=document.getElementById('zbFatalTxt');if(!t){t=document.createElement('div');t.id='zbFatalTxt';el.appendChild(t);}t.textContent+=(loc?('['+loc+'] '):'')+msg+'\n';el.style.display='block';clearTimeout(el._ft);el._ft=setTimeout(function(){try{el.style.display='none';}catch(e){}},7000);}catch(e){}}
 window.addEventListener('error',function(e){_showFatal((e&&(e.message||(e.error&&e.error.message)))||String(e&&e.error||e),(e&&e.filename?e.filename+':'+e.lineno:e.lineno));});
 window.addEventListener('unhandledrejection',function(e){_showFatal('Promise: '+((e&&e.reason&&(e.reason.message||e.reason))||'unknown'));});
 let DATA=null;   // 离线个人版为全量数据；学生版为 null，登录鉴权后从 /api/content 拉取
@@ -2186,10 +2187,11 @@ function essayMemo(i){
 }
 
 // ===== 进度页 =====
-function renderStat(){let n=0,r=0;Object.values(S.quiz.done).forEach(d=>{n+=d.n;r+=d.r;});$('st-q').innerHTML=`刷题：累计 ${n} 题次 · 正确率 ${n?Math.round(r/n*100):0}% · 错题 ${S.quiz.wrong.length}`;const tot=DATA.cards.length,known=S.cards.known.length,ver=S.cards.verified.length;$('st-c').innerHTML=`背诵卡：总数 ${tot} · 已会 ${known} · 语音过关 ${ver} · 待巩固 ${tot-known}`;renderVolStat();}
+function renderStat(){let n=0,r=0;Object.values(S.quiz.done).forEach(d=>{n+=d.n;r+=d.r;});$('st-q').innerHTML=`刷题：累计 ${n} 题次 · 正确率 ${n?Math.round(r/n*100):0}% · 错题 ${S.quiz.wrong.length}`;const tot=(DATA&&DATA.cards)?DATA.cards.length:0,known=S.cards.known.length,ver=S.cards.verified.length;$('st-c').innerHTML=`背诵卡：总数 ${tot} · 已会 ${known} · 语音过关 ${ver} · 待巩固 ${tot-known}`;renderVolStat();}
 // 按教材册 × 科目 统计题库题量与练习进度
 function renderVolStat(){
   const box=$('st-vol');if(!box)return;
+  if(!DATA){box.innerHTML='<p class="muted" style="font-size:12px">题库加载中…</p>';return;}
   let rows='';
   const grand={t:0,n:0,r:0,w:0,c:0,k:0};
   const vols=[...new Set(Object.values(DATA.subjects).flatMap(o=>Object.keys(o)))];
@@ -2405,7 +2407,7 @@ async function _refreshMineBg(force){
   if(need('checkin')) jobs.push(API.call('/api/checkin').then(v=>_mcSet('checkin',v)).catch(()=>{}));
   try{ await Promise.all(jobs); }catch(e){}
   _mineLoading=false;
-  _paintMine();
+  try{ _paintMine(); }catch(e){ console.warn('paintMine',e); }
   // 预取完成时若正停在好友页，把新到的数据补上（消除两个异步流程的竞争）
   try{ if(curPage==='friends') _paintFriends(); }catch(e){}
 }
