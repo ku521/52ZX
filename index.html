@@ -1257,7 +1257,7 @@ const S=JSON.parse(localStorage.getItem('zb_site')||'null')||{quiz:{done:{},wron
 // 兼容旧数据：补齐字段，避免老 localStorage 缺 reset/pick 时报错
 S.quiz=S.quiz||{};S.quiz.done=S.quiz.done||{};S.quiz.wrong=S.quiz.wrong||[];S.quiz.reset=S.quiz.reset||{};
 S.cards=S.cards||{};S.cards.known=S.cards.known||[];S.cards.verified=S.cards.verified||[];
-function save(){localStorage.setItem('zb_site',JSON.stringify(S)); if(MODE==='server') cloudPush();}
+function save(){localStorage.setItem('zb_site',JSON.stringify(S)); if(MODE==='server'){ try{ localStorage.setItem('zb_dirty', JSON.stringify({d:[..._dirtyDone],w:[..._dirtyWrong]})); }catch(e){} cloudPush(); }}
 function $(id){return document.getElementById(id);}
 const SUBJ=['历史','地理','政治','生物'];
 const VOL_DEF={'政治':'同步·必修1','历史':'同步·纲要上','地理':'同步·必修一','生物':'同步·分子与细胞'};
@@ -3572,6 +3572,7 @@ function updateLineLabel(){ const el=document.getElementById('lineLabel'); if(!e
 // ---------- 云端同步：做题进度 / 错题 / 背诵进度（按字段存 Turso） ----------
 let CLOUD=null, _syncTimer=null, CLOUD_LOADED=false;
 let _dirtyDone=new Set(), _dirtyWrong=new Set();
+try{ const rd=JSON.parse(localStorage.getItem('zb_dirty')||'null'); if(rd){ (rd.d||[]).forEach(x=>_dirtyDone.add(x)); (rd.w||[]).forEach(x=>_dirtyWrong.add(x)); } }catch(e){}
 function markDirty(kind,id){ if(kind==='done')_dirtyDone.add(id); else if(kind==='wrong')_dirtyWrong.add(id); }
 async function cloudLoad(){
   if(MODE!=='server') return;
@@ -3617,8 +3618,18 @@ function cloudPush(){
     try{
       await API.call('/api/rec/bulk',{items});
       _dirtyDone.clear();_dirtyWrong.clear();   // 成功才清 dirty；失败保留，下次重试
+      try{ localStorage.removeItem('zb_dirty'); }catch(e){}
     }catch(e){ console.warn('cloud push',e); }
   }, 1200);
+}
+// 定时同步：每 15 秒把本地变动（dirty）增量推送到云数据库；页面隐藏/关闭时立即补推，
+// 保证答题进度「丝滑本地优先、空闲/不卡时再同步」，且无论从哪台设备都不会丢进度。
+if(typeof window!=='undefined'){
+  setInterval(()=>{ try{ if(MODE==='server') cloudPush(); }catch(e){} }, 15000);
+  const _flush=()=>{ try{ if(MODE==='server') cloudPush(); }catch(e){} };
+  window.addEventListener('pagehide', _flush);
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') _flush(); });
+  window.addEventListener('beforeunload', _flush);
 }
 
 // ============================================================
@@ -4599,22 +4610,25 @@ function overlay(id,on){ const el=document.getElementById(id); if(el) el.style.d
 function drawWM(){ const t=(CUR_USER||'会员')+' '; let s=''; for(let i=0;i<500;i++) s+=t; document.getElementById('wm').textContent=s; }
 async function loadContent(){
   if(DATA) return DATA;
-  // 1) 先取短期内容凭证（限流、单次使用）；2) 带凭证拉取；
-  // 3) 后端对内容做了 gzip+base64 混淆，这里按协议解码。三层把关：登录 + 审核 + 凭证。
   let ticket="";
   try{ const tk=await API.call('/api/content/ticket'); ticket=tk&&tk.ticket||""; }catch(e){ ticket=""; }
   if(ticket||!GH_STATIC){
-    try{ const data=await fetchContent(ticket); DATA=data; return DATA; }catch(e){}
+    try{ const data=await fetchContent(ticket); DATA=data; _cacheContent(data); return DATA; }catch(e){}
   }
-  // 2) 静态托管兜底：同目录 content.json（免费版：已剥离答案/解析/赋分要点）
   if(GH_STATIC){
     try{
       const r=await fetch('content.json',{cache:'no-store'});
-      if(r.ok){ DATA=await r.json(); return DATA; }
+      if(r.ok){ DATA=await r.json(); _cacheContent(DATA); return DATA; }
     }catch(e){}
   }
+  // 离线兜底：云端不可达时复用本地缓存的题库，保证「题库缓存到本地」后依然能正常答题
+  const cached=_readContentCache();
+  if(cached){ DATA=cached; }
   return DATA;
 }
+// 题库本地缓存（localStorage）：成功后写、需要时读；超出配额则静默放弃，不影响答题
+function _cacheContent(d){ try{ localStorage.setItem('zb_content_cache', JSON.stringify({t:Date.now(),data:d})); }catch(e){} }
+function _readContentCache(){ try{ const raw=localStorage.getItem('zb_content_cache'); if(!raw) return null; const o=JSON.parse(raw); return o&&o.data?o.data:null; }catch(e){ return null; } }
 async function fetchContent(ticket){
   const bases=API_BASES.length?API_BASES:[''];
   let lastErr;
