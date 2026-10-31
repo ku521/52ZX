@@ -1252,12 +1252,23 @@ body.dark .ps-sub{color:#a9b7cd}
 </div>
 
 <script>
+// ===== 安全存储 + 全局错误兜底（防白屏）=====
+// 部分环境（iPad 隐私模式、App 内 WebView、部分教育平板/企业浏览器）会禁用或拦截 localStorage，
+// 直接访问会抛 SecurityError/TypeError，使整段脚本在求值阶段中止 → 白屏。
+// 这里统一探测并兜底：禁用时退化为内存态（进度仍可经网络同步云端），且任何未捕获错误都显示到屏幕便于排查。
+var _lsOK=(function(){try{var k='__zb_ls_probe';localStorage.setItem(k,'1');localStorage.removeItem(k);return true;}catch(e){return false;}})();
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{if(_lsOK)localStorage.setItem(k,v);}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
+function _showFatal(msg,loc){try{var el=document.getElementById('zbFatal');if(!el){el=document.createElement('div');el.id='zbFatal';el.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:#b00020;color:#fff;font:12px/1.5 Consolas,monospace;padding:8px 10px;border-radius:8px;white-space:pre-wrap;max-height:60%;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)';document.body.appendChild(el);}el.textContent+=(loc?('['+loc+'] '):'')+msg+'\n';}catch(e){}}
+window.addEventListener('error',function(e){_showFatal((e&&(e.message||(e.error&&e.error.message)))||String(e&&e.error||e),(e&&e.filename?e.filename+':'+e.lineno:e.lineno));});
+window.addEventListener('unhandledrejection',function(e){_showFatal('Promise: '+((e&&e.reason&&(e.reason.message||e.reason))||'unknown'));});
 let DATA=null;   // 离线个人版为全量数据；学生版为 null，登录鉴权后从 /api/content 拉取
-const S=JSON.parse(localStorage.getItem('zb_site')||'null')||{quiz:{done:{},wrong:[]},cards:{known:[]}};
+const S=JSON.parse(lsGet('zb_site')||'null')||{quiz:{done:{},wrong:[]},cards:{known:[]}};
 // 兼容旧数据：补齐字段，避免老 localStorage 缺 reset/pick 时报错
 S.quiz=S.quiz||{};S.quiz.done=S.quiz.done||{};S.quiz.wrong=S.quiz.wrong||[];S.quiz.reset=S.quiz.reset||{};
 S.cards=S.cards||{};S.cards.known=S.cards.known||[];S.cards.verified=S.cards.verified||[];
-function save(){localStorage.setItem('zb_site',JSON.stringify(S)); if(MODE==='server'){ try{ localStorage.setItem('zb_dirty', JSON.stringify({d:[..._dirtyDone],w:[..._dirtyWrong]})); }catch(e){} cloudPush(); }}
+function save(){lsSet('zb_site',JSON.stringify(S)); if(MODE==='server'){ try{ lsSet('zb_dirty', JSON.stringify({d:[..._dirtyDone],w:[..._dirtyWrong]})); }catch(e){} cloudPush(); }}
 function $(id){return document.getElementById(id);}
 const SUBJ=['历史','地理','政治','生物'];
 const VOL_DEF={'政治':'同步·必修1','历史':'同步·纲要上','地理':'同步·必修一','生物':'同步·分子与细胞'};
@@ -2325,13 +2336,13 @@ function _mcPersist(){
   try{
     const out={};
     for(const k in _MINE_CACHE){ out[k]={v:_MINE_CACHE[k].v, t:_MINE_CACHE[k].exp}; }
-    localStorage.setItem(MINE_PERSIST_KEY, JSON.stringify(out));
+    lsSet(MINE_PERSIST_KEY, JSON.stringify(out));
   }catch(e){}
 }
 // 启动时读回持久化缓存（即使已过期也先用着，后台会校准）
 function _mcRestore(){
   try{
-    const raw=localStorage.getItem(MINE_PERSIST_KEY); if(!raw) return;
+    const raw=lsGet(MINE_PERSIST_KEY); if(!raw) return;
     const o=JSON.parse(raw)||{};
     for(const k in o){
       const c=o[k]; if(!c) continue;
@@ -4627,8 +4638,8 @@ async function loadContent(){
   return DATA;
 }
 // 题库本地缓存（localStorage）：成功后写、需要时读；超出配额则静默放弃，不影响答题
-function _cacheContent(d){ try{ localStorage.setItem('zb_content_cache', JSON.stringify({t:Date.now(),data:d})); }catch(e){} }
-function _readContentCache(){ try{ const raw=localStorage.getItem('zb_content_cache'); if(!raw) return null; const o=JSON.parse(raw); return o&&o.data?o.data:null; }catch(e){ return null; } }
+function _cacheContent(d){ try{ lsSet('zb_content_cache', JSON.stringify({t:Date.now(),data:d})); }catch(e){} }
+function _readContentCache(){ try{ const raw=lsGet('zb_content_cache'); if(!raw) return null; const o=JSON.parse(raw); return o&&o.data?o.data:null; }catch(e){ return null; } }
 async function fetchContent(ticket){
   const bases=API_BASES.length?API_BASES:[''];
   let lastErr;
