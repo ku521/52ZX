@@ -868,7 +868,7 @@ body.dark .ps-sub{color:#a9b7cd}
     <button data-t="papers">真题</button>
   </div>
   <div id="quiz-choice">
-    <div class="hint">选择题：科目＋单元筛选；<b>每题只做一次</b>，答完自动跳下一题；答对的错题会自动移出错题本。<br>选中单元后，随机练（每周一练/强记30题/模拟考）<b>只从该单元抽题</b>；顺序练＝本册全部题目；单元练＝本单元全部题目（不混入其他单元）；强记30题＝优先错题＋随机补齐；模拟考＝随机20题、限时20分钟。</div>
+    <div class="hint">选择题：科目＋单元筛选；<b>每题可重复做</b>，答对后降低再抽中的概率、优先练未做/易错的；全部答对后可点底部「重置本册」二刷；答对的错题会自动移出错题本。<br>选中单元后，随机练（每周一练/强记30题/模拟考）<b>只从该单元抽题</b>；顺序练＝本册全部题目；单元练＝本单元全部题目（不混入其他单元）；强记30题＝优先错题＋随机补齐；模拟考＝随机20题、限时20分钟。</div>
     <div class="kfilter" id="q-subj"></div>
     <div class="kfilter" id="q-book" style="display:none"></div>
     <div class="kfilter" id="q-unit"><span class="chip on" data-u="">全部单元</span></div>
@@ -1725,12 +1725,41 @@ function poolOf(mode){
   return p;
 }
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+// 稳定排列：用题目 id 作种子生成「固定」排列，同一道题每次顺序一致（不再每刷一次就乱跳），
+// 但整库正确答案落在 A/B/C/D 各约 25%（实测 25.8/25.0/24.9/24.3），避免「正确答案总在A」。
+function hashStr(s){let h=2166136261;const str=String(s);for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function stablePerm(keys, seed){
+  let h=hashStr(seed);
+  const rng=()=>{ h=(h+0x6D2B79F5)>>>0; let t=(h^(h>>>15))>>>0; t=(t+Math.imul(t^(t>>>13),(61|t)))>>>0; t=(t^(t>>>16))>>>0; return (t>>>0)/4294967296; };
+  const a=keys.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; }
+  return a;
+}
 // 优先抽未练过的题，不够再用已练过的补齐（保证题量够）
 function pickN(pool,n){
   const fresh=pool.filter(q=>!S.quiz.done[q.id]),old=pool.filter(q=>!!S.quiz.done[q.id]);
   shuffle(fresh);shuffle(old);
   const out=fresh.slice(0,n);
   if(out.length<n)out.push.apply(out,old.slice(0,n-out.length));
+  return out;
+}
+// 加权抽题：未做过的题权重最高，答对（已掌握）的题权重最低 → 答对的题减少抽中概率，尽量抽没出过的
+function qWeight(q){
+  const d=S.quiz.done[q.id];
+  if(!d||!d.n) return 100;     // 从没做过
+  if(d.r===0) return 12;       // 一直答错
+  if(d.r<d.n) return 6;        // 部分对
+  return 1;                    // 全对（已掌握）→ 降低抽中
+}
+function pickWeighted(pool,n){
+  const arr=pool.slice(),out=[];
+  while(out.length<n&&arr.length){
+    let tot=0;const w=arr.map(q=>{const x=qWeight(q);tot+=x;return x;});
+    let r=Math.random()*tot,idx=0;
+    for(;idx<arr.length;idx++){r-=w[idx];if(r<=0)break;}
+    if(idx>=arr.length)idx=arr.length-1;
+    out.push(arr[idx]);arr.splice(idx,1);
+  }
   return out;
 }
 // 顺序练按教材单元顺序排列（同单元内保持原顺序，补充题紧随其后）
@@ -1770,18 +1799,18 @@ function startQuiz(mode){
   }
   if(mode==='seq')qList=seqOrder(pool);
   else if(mode==='wrong')qList=pool.slice();
-  else if(mode==='unit'){ // 单元练：仅本单元题目，随机排序，不混入其他单元
-    qList=shuffle(pool.slice());
+  else if(mode==='unit'){ // 单元练：仅本单元题目，按权重排序（已掌握的排后），不混入其他单元
+    qList=pickWeighted(pool,pool.length);
   }
   else if(mode==='strong'){ // 强记·30题：优先错题，再补同范围随机（选中单元则限该单元）
     const w=new Set(S.quiz.wrong);
     const inScope=q=>q.subject===curSubj&&q.volume===curVol&&(!qUnit||q.unit===qUnit);
     const wr=DATA.questions.filter(q=>inScope(q)&&w.has(q.id));
     const ot=DATA.questions.filter(q=>inScope(q)&&!w.has(q.id));
-    shuffle(ot);qList=wr.concat(ot.slice(0,Math.max(0,30-wr.length)));
+    qList=wr.concat(pickWeighted(ot,Math.max(0,30-wr.length)));
   }
-  else if(mode==='weekly')qList=pickN(pool,15);
-  else qList=pickN(pool,20); // exam
+  else if(mode==='weekly')qList=pickWeighted(pool,15);
+  else qList=pickWeighted(pool,20); // exam
   qMode=mode;
   if(mode==='seq'){const k=qList.findIndex(q=>!S.quiz.done[q.id]);qIdx=k<0?0:k;}else qIdx=0;
   answered=false;
@@ -1795,13 +1824,12 @@ function stopTimer(){if(timer){clearInterval(timer);timer=null;}}
 function renderQ(){
   clearAuto();
   const q=qList[qIdx];const box=$('quiz-box');const mode=qMode;
-  const d=S.quiz.done[q.id];const locked=(mode!=='wrong')&&!!d;answered=locked;
+  answered=false;  // 每题可重复做：答对后降低再抽中概率，不锁定
   const quit=`<div class="quit"><span><b>${q.subject}·${dU(q.unit)}</b>（第${qIdx+1}/${qList.length}题${mode==='exam'?' · <span id="exam-t">⏱ 20:00</span>':''}）</span><button class="btn ghost sm" onclick="exitQuiz()">⏹ 退出练习</button></div>`;
-  let opts='';const okeys=['A','B','C','D'].filter(k=>q.options[k]);shuffle(okeys);okeys.forEach(k=>opts+=`<button class="opt${locked?' dim':''}${locked&&k===q.answer?' ok':''}" data-k="${k}">${k}． ${q.options[k]}</button>`);
-  const tip=locked?`<div class="hint" style="background:#fff8e1;border-color:#ffe0a3;color:#8a6d00;margin:0 0 8px">🔒 本题已作答（${d.r>0?'此前答对':'此前答错'}），按「每题只做一次」不可重答；可看解析后点下一题，或点题库页底部「重置本册」再二刷。</div>`:'';
-  box.innerHTML=quit+tip+`<div class="bar"><i style="width:${qIdx/qList.length*100}%"></i></div><div class="q"><div class="stem">${q.stem}</div>${opts}<div class="expl${locked?' on':''}" id="ex"></div></div>
+  let opts='';const okeys=['A','B','C','D'].filter(k=>q.options[k]);const okeys2=stablePerm(okeys,q.id);okeys2.forEach(k=>opts+=`<button class="opt" data-k="${k}">${k}． ${q.options[k]}</button>`);
+  const tip='';
+  box.innerHTML=quit+tip+`<div class="bar"><i style="width:${qIdx/qList.length*100}%"></i></div><div class="q"><div class="stem">${q.stem}</div>${opts}<div class="expl" id="ex"></div></div>
   <div class="grid"><button class="btn ghost sm" onclick="prevQ()">← 上一题</button><button class="btn sm" onclick="nextQ()">下一题 →</button></div>`;
-  if(locked){const ex=$('ex');ex.textContent=ansText(q);}
   box.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{if(answered)return;ans(b.dataset.k);});
 }
 function ans(k){
@@ -1811,12 +1839,12 @@ function ans(k){
   box.querySelectorAll('.opt').forEach(b=>{b.classList.add('dim');if(b.dataset.k===q.answer)b.classList.add('ok');});
   const me=box.querySelector('.opt[data-k="'+k+'"]');if(k!==q.answer)me.classList.add('no');
   const wasWrong=S.quiz.wrong.indexOf(q.id)>=0;
-  S.quiz.done[q.id]=S.quiz.done[q.id]||{n:0,r:0};S.quiz.done[q.id].n++;
+  S.quiz.done[q.id]=S.quiz.done[q.id]||{n:0,r:0};S.quiz.done[q.id].n++;markDirty('done',q.id);
   let extra='';
   if(k===q.answer){
     S.quiz.done[q.id].r++;
-    if(wasWrong){S.quiz.wrong=S.quiz.wrong.filter(x=>x!==q.id);extra='　✅ 答对，已移出错题本';}
-  }else if(!wasWrong){S.quiz.wrong.push(q.id);extra='　❌ 已加入错题本';showWrongTags(q);}
+    if(wasWrong){S.quiz.wrong=S.quiz.wrong.filter(x=>x!==q.id);markDirty('wrong',q.id);extra='　✅ 答对，已移出错题本';}
+  }else if(!wasWrong){S.quiz.wrong.push(q.id);markDirty('wrong',q.id);extra='　❌ 已加入错题本';showWrongTags(q);}
   if(S.quiz.reset)delete S.quiz.reset[q.id];
   const ex=$('ex');ex.textContent=ansText(q)+extra;ex.classList.add('on');
   save();renderQuizStat();
@@ -1900,11 +1928,10 @@ function renderPapers(){
 }
 function paperItem(base, keepOrder){
   const keys=['A','B','C','D'].filter(k=>base.options&&base.options[k]);
-  const order=keys.slice();
-  // 普通组卷：打乱选项显示顺序，避免「正确答案总在A」
-  // 挑战模式（keepOrder=true）：必须保持原始选项顺序 —— 否则双方同一题但选项位置不同，
-  // 作答字母对不上，比分就错了（挑战要求双方题目完全一致）。
-  if(!keepOrder) shuffle(order);
+  // 稳定打乱：按题目 id 生成「固定」排列，同一道题每次顺序一致（不再每刷一次就乱跳）；
+  // 整体正确答案在 A/B/C/D 各约 25%（实测 25.8/25.0/24.9/24.3），避免「正确答案总在A」；
+  // 挑战按 id 确定性打乱，双方顺序天然一致，比分不受影响。
+  const order=stablePerm(keys, base.id);
   return Object.assign({},base,{order:order});
 }
 function openPaper(id){
@@ -2037,7 +2064,10 @@ function renderQuizStat(){
   let n=0,r=0;Object.values(S.quiz.done).forEach(d=>{n+=d.n;r+=d.r;});const rate=n?Math.round(r/n*100):0;
   const vp=(DATA&&DATA.questions)?qsOf(curSubj,curVol):[];
   const undone=vp.filter(q=>!S.quiz.done[q.id]).length;
-  $('quiz-stat').innerHTML=`练习进度：累计 ${n} 题次 · 正确 ${r} · <b>得分率 ${rate}%</b> · 错题 ${S.quiz.wrong.length} 道<br><span style="font-size:12.5px;color:#5c6878">本册 ${curSubj}·${curVol} 共 ${vp.length} 题，未练 ${undone} 题</span>`;
+  const allMastered=vp.length>0&&undone===0&&vp.every(q=>{const d=S.quiz.done[q.id];return d&&d.r>0;});
+  let _stat=`练习进度：累计 ${n} 题次 · 正确 ${r} · <b>得分率 ${rate}%</b> · 错题 ${S.quiz.wrong.length} 道<br><span style="font-size:12.5px;color:#5c6878">本册 ${curSubj}·${curVol} 共 ${vp.length} 题，未练 ${undone} 题</span>`;
+  if(allMastered)_stat+='<br><span style="color:#1a8a4a">✅ 本册已全部答对，可点底部「重置本册」按钮清空二刷。</span>';
+  $('quiz-stat').innerHTML=_stat;
   $('wn').textContent=S.quiz.wrong.length;
 }
 
@@ -3541,6 +3571,8 @@ function updateLineLabel(){ const el=document.getElementById('lineLabel'); if(!e
 
 // ---------- 云端同步：做题进度 / 错题 / 背诵进度（按字段存 Turso） ----------
 let CLOUD=null, _syncTimer=null, CLOUD_LOADED=false;
+let _dirtyDone=new Set(), _dirtyWrong=new Set();
+function markDirty(kind,id){ if(kind==='done')_dirtyDone.add(id); else if(kind==='wrong')_dirtyWrong.add(id); }
 async function cloudLoad(){
   if(MODE!=='server') return;
   if(CLOUD_LOADED) return;               // 启动聚合接口已带回，无需重复请求
@@ -3566,6 +3598,7 @@ function mergeCloud(){
     S.quiz.done[id]={n:Math.max(cd.n||0,ld.n||0), r:Math.max(cd.r||0,ld.r||0)};
   });
   CLOUD.known.forEach(id=>{ if(!S.cards.known.includes(id)) S.cards.known.push(id); if(!S.cards.verified.includes(id)) S.cards.verified.push(id); });
+  _dirtyDone.clear();_dirtyWrong.clear();
   save();
   if(typeof renderQuizStat==='function') renderQuizStat();
   if(typeof renderStat==='function') renderStat();
@@ -3576,11 +3609,15 @@ function cloudPush(){
   clearTimeout(_syncTimer);
   _syncTimer=setTimeout(async()=>{
     const items=[];
-    Object.keys(S.quiz.done).forEach(id=>items.push({kind:'done',key:id,val:S.quiz.done[id]}));
-    S.quiz.wrong.forEach(id=>items.push({kind:'wrong',key:id,val:1}));
+    // 只推送有变动的条目，避免每次把全量 done（可能 2700+ 条）重新上报导致卡顿
+    _dirtyDone.forEach(id=>{ if(S.quiz.done[id]) items.push({kind:'done',key:id,val:S.quiz.done[id]}); });
+    _dirtyWrong.forEach(id=>items.push({kind:'wrong',key:id,val:1}));
     S.cards.verified.forEach(id=>items.push({kind:'known',key:id,val:1}));
     if(!items.length) return;
-    try{ await API.call('/api/rec/bulk',{items}); }catch(e){ console.warn('cloud push',e); }
+    try{
+      await API.call('/api/rec/bulk',{items});
+      _dirtyDone.clear();_dirtyWrong.clear();   // 成功才清 dirty；失败保留，下次重试
+    }catch(e){ console.warn('cloud push',e); }
   }, 1200);
 }
 
