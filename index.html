@@ -1837,7 +1837,7 @@ function renderQ(){
   const q=qList[qIdx];const box=$('quiz-box');const mode=qMode;
   answered=false;  // 每题可重复做：答对后降低再抽中概率，不锁定
   const quit=`<div class="quit"><span><b>${q.subject}·${dU(q.unit)}</b>（第${qIdx+1}/${qList.length}题${mode==='exam'?' · <span id="exam-t">⏱ 20:00</span>':''}）</span><button class="btn ghost sm" onclick="exitQuiz()">⏹ 退出练习</button></div>`;
-  let opts='';const okeys=['A','B','C','D'].filter(k=>q.options[k]);const okeys2=stablePerm(okeys,q.id);okeys2.forEach(k=>opts+=`<button class="opt" data-k="${k}">${k}． ${q.options[k]}</button>`);
+  let opts='';const okeys=['A','B','C','D'].filter(k=>q.options[k]);const _perm=stablePerm(okeys,q.id);opts=okeys.map((L,i)=>`<button class="opt" data-k="${_perm[i]}">${L}． ${q.options[_perm[i]]}</button>`);
   const tip='';
   box.innerHTML=quit+tip+`<div class="bar"><i style="width:${qIdx/qList.length*100}%"></i></div><div class="q"><div class="stem">${q.stem}</div>${opts}<div class="expl" id="ex"></div></div>
   <div class="grid"><button class="btn ghost sm" onclick="prevQ()">← 上一题</button><button class="btn sm" onclick="nextQ()">下一题 →</button></div>`;
@@ -1942,8 +1942,8 @@ function paperItem(base, keepOrder){
   // 稳定打乱：按题目 id 生成「固定」排列，同一道题每次顺序一致（不再每刷一次就乱跳）；
   // 整体正确答案在 A/B/C/D 各约 25%（实测 25.8/25.0/24.9/24.3），避免「正确答案总在A」；
   // 挑战按 id 确定性打乱，双方顺序天然一致，比分不受影响。
-  const order=stablePerm(keys, base.id);
-  return Object.assign({},base,{order:order});
+  const perm=stablePerm(keys, base.id);
+  return Object.assign({},base,{keys:keys,perm:perm});
 }
 function openPaper(id){
   if(!needPerm('答题'))return;
@@ -1968,10 +1968,11 @@ function renderPaperQ(){
   const q=pList[pIdx];const d=$('paper-do');
   const done=pDone[pIdx];   // 已作答则锁定，回看显示原结果，不允许改分
   let opts='';
-  q.order.forEach(k=>{
+  q.keys.forEach((L,i)=>{
+    const k=q.perm[i];
     let cls='opt';
     if(done!==undefined){cls+=' dim';if(k===q.answer)cls+=' ok';if(k===done&&k!==q.answer)cls+=' no';}
-    opts+='<button class="'+cls+'" data-k="'+k+'">'+k+'． '+q.options[k]+'</button>';
+    opts+='<button class="'+cls+'" data-k="'+k+'">'+L+'． '+q.options[k]+'</button>';
   });
   const explHtml=done!==undefined
     ? '<div class="expl on" id="pex">【你的答案】'+done+'　'+ansText(q)+'</div>'
