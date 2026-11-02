@@ -1837,7 +1837,7 @@ function renderQ(){
   const q=qList[qIdx];const box=$('quiz-box');const mode=qMode;
   answered=false;  // 每题可重复做：答对后降低再抽中概率，不锁定
   const quit=`<div class="quit"><span><b>${q.subject}·${dU(q.unit)}</b>（第${qIdx+1}/${qList.length}题${mode==='exam'?' · <span id="exam-t">⏱ 20:00</span>':''}）</span><button class="btn ghost sm" onclick="exitQuiz()">⏹ 退出练习</button></div>`;
-  let opts='';const okeys=['A','B','C','D'].filter(k=>q.options[k]);const _perm=stablePerm(okeys,q.id);opts=okeys.map((L,i)=>`<button class="opt" data-k="${_perm[i]}">${L}． ${q.options[_perm[i]]}</button>`);
+  let opts='';const okeys=['A','B','C','D'].filter(k=>q.options[k]);const _perm=stablePerm(okeys,q.id);opts=okeys.map((L,i)=>`<button class="opt" data-k="${_perm[i]}">${L}． ${q.options[_perm[i]]}</button>`).join('');
   const tip='';
   box.innerHTML=quit+tip+`<div class="bar"><i style="width:${qIdx/qList.length*100}%"></i></div><div class="q"><div class="stem">${q.stem}</div>${opts}<div class="expl" id="ex"></div></div>
   <div class="grid"><button class="btn ghost sm" onclick="prevQ()">← 上一题</button><button class="btn sm" onclick="nextQ()">下一题 →</button></div>`;
