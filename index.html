@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#3b6fe0">
 
 <link rel="icon" type="image/png" href="favicon-32.png"><title>高中·文综（政史地生）加油站 · 52ZX吾爱自学</title>
+<script>window.__GH_STATIC__=true;window.__GH_CLOUD__="https://52zx.app.workbuddy.host/?sharecode=E2G3MZIBK2";window.__API_BASES__=["https://52zx.app.workbuddy.host"];</script>
 <script>
 /* 注册 Service Worker：离线外壳 + 静态缓存。
  * 延后到 load 事件后注册，避免与首屏资源争抢带宽、拖慢首屏。
@@ -1837,7 +1838,7 @@ function renderQ(){
   const q=qList[qIdx];const box=$('quiz-box');const mode=qMode;
   answered=false;  // 每题可重复做：答对后降低再抽中概率，不锁定
   const quit=`<div class="quit"><span><b>${q.subject}·${dU(q.unit)}</b>（第${qIdx+1}/${qList.length}题${mode==='exam'?' · <span id="exam-t">⏱ 20:00</span>':''}）</span><button class="btn ghost sm" onclick="exitQuiz()">⏹ 退出练习</button></div>`;
-  let opts='';const okeys=['A','B','C','D'].filter(k=>q.options[k]);const _perm=stablePerm(okeys,q.id);opts=okeys.map((L,i)=>`<button class="opt" data-k="${_perm[i]}">${L}． ${q.options[_perm[i]]}</button>`);
+  let opts='';const okeys=['A','B','C','D'].filter(k=>q.options[k]);const _perm=stablePerm(okeys,q.id);opts=okeys.map((L,i)=>`<button class="opt" data-k="${_perm[i]}">${L}． ${q.options[_perm[i]]}</button>`).join('');
   const tip='';
   box.innerHTML=quit+tip+`<div class="bar"><i style="width:${qIdx/qList.length*100}%"></i></div><div class="q"><div class="stem">${q.stem}</div>${opts}<div class="expl" id="ex"></div></div>
   <div class="grid"><button class="btn ghost sm" onclick="prevQ()">← 上一题</button><button class="btn sm" onclick="nextQ()">下一题 →</button></div>`;
